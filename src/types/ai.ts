@@ -25,6 +25,7 @@ export interface AIGenerationRequest {
   isPreprocessed?: boolean;
   useMultimodalFallback?: boolean;
   preprocessingMetadata?: PreprocessingMetadata;
+  canonicalContent?: CanonicalContent;
 }
 
 export interface GeneratedArtifact {

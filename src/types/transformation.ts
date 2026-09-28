@@ -97,6 +97,9 @@ export interface PreprocessingMetadata {
   detectedSignals?: DetectedSignals;
 }
 
+import { CanonicalContent } from './canonical';
+export type { CanonicalContent };
+
 export interface SourceDocument {
   id: string;
   transformation_id: string;
@@ -109,6 +112,7 @@ export interface SourceDocument {
   source_hash?: string | null;
   source_url?: string | null;
   preprocessing_metadata?: PreprocessingMetadata | null;
+  canonical_content?: CanonicalContent | null;
   created_at: string;
 }
 
@@ -130,20 +134,4 @@ export interface Artifact {
   };
   created_at: string;
   updated_at: string;
-}
-
-export interface CanonicalContent {
-  summary: string;
-  content_type: string;
-  primary_topic?: string;
-  topics: string[];
-  entities: string[];
-  key_facts: string[];
-  dates?: string[];
-  locations?: string[];
-  detected_language: string;
-  audience?: string;
-  objective?: string;
-  source_hash?: string;
-  validation_status: 'VALIDATED' | 'NEEDS REVIEW';
 }

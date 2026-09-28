@@ -19,7 +19,8 @@ import {
   saveArtifacts,
 } from '@/services/transformations';
 import { uploadSourceFile } from '@/services/storage';
-import { generateContentWithAI } from '@/services/ai';
+import { generateContentWithAI, extractCanonicalContent } from '@/services/ai';
+import { normalizeCanonicalContent } from '@/services/canonical';
 import { preprocessFile, preprocessRawText, PreprocessingResult } from '@/services/preprocessor';
 import { calculateSHA256 } from '@/lib/utils';
 import { Sparkles, AlertCircle, ShieldCheck } from 'lucide-react';
@@ -128,28 +129,52 @@ export function CreateTransformation() {
         }
       }
 
-      // Stage 3: Content Extraction & Normalization
+      // Determine Payload routing
+      const isPreprocessed = activePrepResult ? !activePrepResult.fallbackRequired : false;
+      const useMultimodalFallback = activePrepResult ? activePrepResult.fallbackRequired : false;
+      const cleanSource = (activePrepResult?.normalizedText || sourceText).trim();
+
+      // Stage 3: Phase B Canonical Content Extraction (Structured Intelligence)
       setStage('content_extraction');
 
-      // Save Source Document Record with Original SHA-256 and Preprocessing Metadata
+      let canonical: import('@/types/canonical').CanonicalContent | undefined;
+      try {
+        canonical = await extractCanonicalContent({
+          sourceText: cleanSource || (selectedFile ? `[Attached File: ${selectedFile.name}]` : undefined),
+          storagePath,
+          fileMimeType: selectedFile?.type,
+          sourceType,
+          language: settings.language,
+          isPreprocessed,
+          useMultimodalFallback,
+          preprocessingMetadata: activePrepResult?.metadata,
+        });
+      } catch (canonicalErr) {
+        console.warn('Phase B Canonical extraction fallback triggered:', canonicalErr);
+        // Fallback to local deterministic extraction so pipeline never stalls
+        canonical = normalizeCanonicalContent(
+          null,
+          cleanSource,
+          sourceType,
+          'deterministic'
+        );
+      }
+
+      // Save Source Document Record with Original SHA-256, Preprocessing Metadata, and CanonicalContent
       await saveSourceDocument(transformation.id, user.id, {
         fileName: selectedFile?.name,
         mimeType: selectedFile?.type,
         fileSize: selectedFile?.size,
         storagePath,
-        sourceText: (activePrepResult?.normalizedText || sourceText).trim() || undefined,
+        sourceText: cleanSource || undefined,
         sourceHash: finalHash,
         sourceUrl: sourceUrl.trim() || undefined,
         preprocessingMetadata: activePrepResult?.metadata,
+        canonicalContent: canonical,
       });
 
-      // Stage 4: Context Preparation
+      // Stage 4: Context Preparation & Guardrails
       setStage('context_preparation');
-
-      // Determine Payload routing:
-      // If client preprocessing succeeded without fallback requirement, send preprocessed AI context (NO raw PDF/DOCX binary)
-      const isPreprocessed = activePrepResult ? !activePrepResult.fallbackRequired : false;
-      const useMultimodalFallback = activePrepResult ? activePrepResult.fallbackRequired : false;
 
       const aiSourceContext =
         activePrepResult && isPreprocessed
@@ -172,6 +197,7 @@ export function CreateTransformation() {
         isPreprocessed,
         useMultimodalFallback,
         preprocessingMetadata: activePrepResult?.metadata,
+        canonicalContent: canonical,
       });
 
       // Stage 6: Output Validation & Schema Verification
@@ -179,6 +205,9 @@ export function CreateTransformation() {
       if (!aiResponse || !aiResponse.artifacts || aiResponse.artifacts.length === 0) {
         throw new Error('Validation failed: No valid artifacts returned by AI model.');
       }
+
+      // Use the canonical content for analysis metadata if available
+      const finalAnalysis = canonical || aiResponse.analysis;
 
       // Stage 7: Artifact Storage & Provenance Locking
       setStage('artifact_storage');

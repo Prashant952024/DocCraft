@@ -30,8 +30,8 @@ export function GenerationProgressModal({
     },
     {
       id: 'content_extraction',
-      label: '3. Content Extraction & Noise Normalization',
-      desc: 'Cleaning unicode noise, detecting factual signals (CVEs, dates, metrics), and structuring sections...',
+      label: '3. Canonical Content Extraction',
+      desc: 'Synthesizing structured CanonicalContent graph (facts, entities, figures, dates, events, actions)...',
     },
     {
       id: 'context_preparation',

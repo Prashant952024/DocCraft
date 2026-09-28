@@ -64,6 +64,7 @@ export async function saveSourceDocument(
     sourceHash?: string;
     sourceUrl?: string;
     preprocessingMetadata?: import('@/types/transformation').PreprocessingMetadata;
+    canonicalContent?: import('@/types/canonical').CanonicalContent;
   }
 ): Promise<SourceDocument> {
   const insertPayload: Record<string, any> = {
@@ -82,6 +83,11 @@ export async function saveSourceDocument(
     insertPayload.preprocessing_metadata = doc.preprocessingMetadata;
   }
 
+  if (doc.canonicalContent) {
+    insertPayload.canonical_content = doc.canonicalContent;
+    insertPayload.canonical_extraction_metadata = doc.canonicalContent.extractionMetadata;
+  }
+
   const { data, error } = await supabase
     .from('source_documents')
     .insert(insertPayload)
@@ -89,9 +95,15 @@ export async function saveSourceDocument(
     .single();
 
   if (error) {
-    // If preprocessing_metadata column does not exist yet, fallback to saving without it
-    if (error.message?.includes('preprocessing_metadata') || error.code === '42703') {
+    // If optional columns do not exist in table, gracefully fallback without them
+    if (
+      error.message?.includes('preprocessing_metadata') ||
+      error.message?.includes('canonical_content') ||
+      error.code === '42703'
+    ) {
       delete insertPayload.preprocessing_metadata;
+      delete insertPayload.canonical_content;
+      delete insertPayload.canonical_extraction_metadata;
       const { data: retryData, error: retryError } = await supabase
         .from('source_documents')
         .insert(insertPayload)
@@ -104,6 +116,23 @@ export async function saveSourceDocument(
   }
 
   return data as SourceDocument;
+}
+
+export async function updateSourceDocumentCanonical(
+  transformationId: string,
+  canonicalContent: import('@/types/canonical').CanonicalContent
+): Promise<void> {
+  try {
+    await supabase
+      .from('source_documents')
+      .update({
+        canonical_content: canonicalContent,
+        canonical_extraction_metadata: canonicalContent.extractionMetadata,
+      })
+      .eq('transformation_id', transformationId);
+  } catch (err) {
+    console.warn('Could not update canonical content in source_documents:', err);
+  }
 }
 
 export async function saveArtifacts(

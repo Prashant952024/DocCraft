@@ -45,7 +45,14 @@ import {
   Check,
   Eye,
   ExternalLink,
+  TrendingUp,
+  CheckSquare,
+  Quote,
+  Table as TableIcon,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
+import { normalizeCanonicalContent } from '@/services/canonical';
 
 export function TransformationDetails() {
   const { id } = useParams<{ id: string }>();
@@ -177,8 +184,18 @@ export function TransformationDetails() {
     );
   }
 
-  const analysis: CanonicalContent | null =
-    (artifacts[0]?.metadata?.analysis as CanonicalContent) || null;
+  const rawAnalysis =
+    sourceDoc?.canonical_content ||
+    (artifacts[0]?.metadata?.analysis as CanonicalContent) ||
+    null;
+
+  const analysis: CanonicalContent | null = rawAnalysis
+    ? normalizeCanonicalContent(
+        rawAnalysis,
+        sourceDoc?.source_text || '',
+        transformation?.source_type || 'text'
+      )
+    : null;
 
   const currentArtifact = artifacts.find(
     (a) => a.id === activeTab || a.artifact_type === activeTab
@@ -459,109 +476,223 @@ export function TransformationDetails() {
             </div>
           </div>
 
-          {/* Phase 7: Canonical Content Intelligence Panel */}
+          {/* Phase B: Canonical Content Intelligence Panel */}
           {analysis && (
-            <div className="rounded-3xl border border-slate-800/90 bg-slate-900/70 p-6 md:p-8 backdrop-blur-xl shadow-xl space-y-6">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
-                    <Sparkles className="h-4.5 w-4.5" />
+            <div className="rounded-3xl border border-cyan-500/30 bg-slate-900/80 p-6 md:p-8 backdrop-blur-xl shadow-2xl space-y-6">
+              {/* Header */}
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-500/10 border border-cyan-500/25 text-cyan-400">
+                    <Sparkles className="h-5 w-5" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-white">
-                      Source Intelligence & Canonical Synthesis
-                    </h3>
-                    <p className="text-xs text-slate-400">
-                      Standardized cross-modality representation before downstream transformation
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-bold text-white tracking-tight">
+                        Source Intelligence & Canonical Knowledge Graph
+                      </h3>
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                        Phase B Engine
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Unified intermediate semantic representation • Reusable across all deliverable formats
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="cyan" className="font-bold">
                     {analysis.validation_status || 'VALIDATED'}
                   </Badge>
                   <span className="text-xs font-mono text-slate-400 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
-                    Language: {analysis.detected_language || 'English'}
+                    Language: {analysis.language || analysis.detected_language || 'English'}
                   </span>
                 </div>
               </div>
 
-              {/* Source Distillation Summary */}
-              <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80">
-                <span className="text-xs font-bold uppercase tracking-wider text-cyan-400 block mb-1.5">
-                  Executive Distillation
+              {/* Extraction Metrics Real Counts Bar */}
+              <div className="flex flex-wrap items-center gap-2 p-3 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs">
+                <span className="text-slate-400 font-semibold mr-1 flex items-center gap-1">
+                  <Layers className="h-3.5 w-3.5 text-cyan-400" />
+                  Canonical Metrics:
                 </span>
+                <span className="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-emerald-300 font-medium">
+                  Facts: {analysis.facts?.length || 0}
+                </span>
+                <span className="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-blue-300 font-medium">
+                  Entities: {analysis.entities?.length || 0}
+                </span>
+                <span className="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-amber-300 font-medium">
+                  Figures: {analysis.figures?.length || 0}
+                </span>
+                <span className="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-purple-300 font-medium">
+                  Dates: {analysis.dates?.length || 0}
+                </span>
+                <span className="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-rose-300 font-medium">
+                  Events: {analysis.events?.length || 0}
+                </span>
+                <span className="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-orange-300 font-medium">
+                  Actions: {analysis.actions?.length || 0}
+                </span>
+                {analysis.tables?.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-cyan-300 font-medium">
+                    Tables: {analysis.tables.length}
+                  </span>
+                )}
+                {analysis.quotes?.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-pink-300 font-medium">
+                    Quotes: {analysis.quotes.length}
+                  </span>
+                )}
+              </div>
+
+              {/* Source Distillation Summary */}
+              <div className="p-5 rounded-2xl bg-slate-950/70 border border-slate-800">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+                    <FileText className="h-3.5 w-3.5" />
+                    Executive Distillation
+                  </span>
+                  <span className="text-[11px] font-mono text-slate-400">
+                    Content Type: {analysis.contentType || analysis.content_type || 'Document'}
+                  </span>
+                </div>
                 <p className="text-sm text-slate-200 leading-relaxed font-sans">
                   {analysis.summary}
                 </p>
               </div>
 
-              {/* Metadata Attributes Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800">
-                  <span className="text-[11px] text-slate-400 block mb-1">Content Type</span>
-                  <span className="font-bold text-white block truncate">
-                    {analysis.content_type || 'Incident Advisory'}
-                  </span>
+              {/* Key Figures & Statistical Metrics */}
+              {analysis.figures && analysis.figures.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-400">
+                    <TrendingUp className="h-4 w-4" />
+                    <span>Key Figures, Metrics & Measurements ({analysis.figures.length})</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {analysis.figures.map((fig, idx) => (
+                      <div
+                        key={fig.id || idx}
+                        className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-amber-500/40 transition-colors"
+                      >
+                        <span className="text-lg font-extrabold text-amber-300 font-mono block">
+                          {fig.value}
+                        </span>
+                        <span className="text-xs font-semibold text-white block mt-0.5 truncate">
+                          {fig.label || 'Metric'}
+                        </span>
+                        {fig.context && (
+                          <p className="text-[11px] text-slate-400 mt-1 line-clamp-2 leading-tight">
+                            {fig.context}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800">
-                  <span className="text-[11px] text-slate-400 block mb-1">Primary Topic</span>
-                  <span className="font-bold text-cyan-300 block truncate">
-                    {analysis.primary_topic || analysis.topics?.[0] || 'Cybersecurity'}
-                  </span>
-                </div>
-                <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800">
-                  <span className="text-[11px] text-slate-400 block mb-1">Target Audience</span>
-                  <span className="font-bold text-white block truncate">
-                    {analysis.audience || transformation.settings?.audience}
-                  </span>
-                </div>
-                <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800">
-                  <span className="text-[11px] text-slate-400 block mb-1">Communication Objective</span>
-                  <span className="font-bold text-white block truncate">
-                    {analysis.objective || transformation.settings?.objective}
-                  </span>
-                </div>
-              </div>
+              )}
 
-              {/* Key Facts, Entities, Dates & Locations */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {/* Two Column Grid: Facts & Actions */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Key Facts */}
                 <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-400">
-                    <CheckCircle2 className="h-4 w-4" />
-                    <span>Verified Key Facts</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-400">
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span>Verified Key Facts ({analysis.facts?.length || 0})</span>
+                    </div>
                   </div>
-                  <ul className="space-y-2 text-xs text-slate-300">
-                    {analysis.key_facts && analysis.key_facts.length > 0 ? (
-                      analysis.key_facts.map((fact, idx) => (
-                        <li key={idx} className="flex items-start gap-2 leading-relaxed">
-                          <span className="text-emerald-400 font-bold">•</span>
-                          <span>{fact}</span>
+                  <ul className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+                    {analysis.facts && analysis.facts.length > 0 ? (
+                      analysis.facts.map((fact, idx) => (
+                        <li
+                          key={fact.id || idx}
+                          className="flex items-start gap-2.5 p-2 rounded-lg bg-slate-900/60 border border-slate-850 text-xs text-slate-200 leading-relaxed"
+                        >
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 mt-0.5 ${
+                              fact.importance === 'high'
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                : 'bg-slate-800 text-slate-400'
+                            }`}
+                          >
+                            {fact.importance || 'fact'}
+                          </span>
+                          <span className="flex-1">{fact.statement}</span>
                         </li>
                       ))
                     ) : (
-                      <li className="text-slate-500">No key facts parsed.</li>
+                      <li className="text-xs text-slate-500">No structured facts parsed.</li>
                     )}
                   </ul>
                 </div>
 
+                {/* Actions & Recommendations */}
+                <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-orange-400">
+                    <CheckSquare className="h-4 w-4" />
+                    <span>Identified Actions & Recommendations ({analysis.actions?.length || 0})</span>
+                  </div>
+                  <ul className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+                    {analysis.actions && analysis.actions.length > 0 ? (
+                      analysis.actions.map((act, idx) => (
+                        <li
+                          key={act.id || idx}
+                          className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-850 text-xs text-slate-200 space-y-1"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-semibold text-white">{act.action}</span>
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 ${
+                                act.priority === 'critical'
+                                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                  : act.priority === 'high'
+                                  ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30'
+                                  : 'bg-slate-800 text-slate-400'
+                              }`}
+                            >
+                              {act.priority || 'Action'}
+                            </span>
+                          </div>
+                          {act.rationale && (
+                            <p className="text-[11px] text-slate-400 leading-tight">
+                              Rationale: {act.rationale}
+                            </p>
+                          )}
+                          {act.deadline && (
+                            <span className="text-[10px] font-mono text-cyan-300 block">
+                              Deadline: {act.deadline}
+                            </span>
+                          )}
+                        </li>
+                      ))
+                    ) : (
+                      <li className="text-xs text-slate-500">No explicit actions identified.</li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Entities & Topics */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Entities */}
                 <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 space-y-3">
                   <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-400">
                     <Users className="h-4 w-4" />
-                    <span>Extracted Entities</span>
+                    <span>Extracted Semantic Entities ({analysis.entities?.length || 0})</span>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto pr-1">
                     {analysis.entities && analysis.entities.length > 0 ? (
                       analysis.entities.map((entity, idx) => (
-                        <span
-                          key={idx}
-                          className="px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-medium"
+                        <div
+                          key={entity.id || idx}
+                          className="px-2.5 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-medium flex items-center gap-1.5"
                         >
-                          {entity}
-                        </span>
+                          <span className="font-semibold text-white">{entity.name}</span>
+                          <span className="text-[10px] font-mono text-blue-400 uppercase bg-blue-950 px-1.5 py-0.5 rounded border border-blue-800/60">
+                            {entity.type}
+                          </span>
+                        </div>
                       ))
                     ) : (
                       <span className="text-xs text-slate-500">No entities detected.</span>
@@ -569,37 +700,103 @@ export function TransformationDetails() {
                   </div>
                 </div>
 
-                {/* Topics & Locations */}
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 space-y-4">
-                  <div>
-                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-purple-400 mb-2">
-                      <Tag className="h-4 w-4" />
-                      <span>Topic Classification</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {analysis.topics?.map((topic, idx) => (
-                        <span
-                          key={idx}
-                          className="px-2.5 py-1 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-medium"
-                        >
-                          {topic}
-                        </span>
-                      ))}
-                    </div>
+                {/* Timeline & Events */}
+                <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-purple-400">
+                    <Clock className="h-4 w-4" />
+                    <span>Events & Timeline ({analysis.events?.length || 0})</span>
                   </div>
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {analysis.events && analysis.events.length > 0 ? (
+                      analysis.events.map((evt, idx) => (
+                        <div
+                          key={evt.id || idx}
+                          className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-850 text-xs space-y-0.5"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-white">{evt.title}</span>
+                            {evt.date && (
+                              <span className="text-[10px] font-mono text-cyan-300">{evt.date}</span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-400">{evt.description}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <span className="text-xs text-slate-500">No events detected.</span>
+                    )}
+                  </div>
+                </div>
+              </div>
 
-                  {analysis.dates && analysis.dates.length > 0 && (
-                    <div className="pt-2 border-t border-slate-800/80">
-                      <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1 flex items-center gap-1">
-                        <Calendar className="h-3 w-3" /> Relevant Dates:
-                      </span>
-                      <div className="flex flex-wrap gap-1 text-xs font-mono text-cyan-300">
-                        {analysis.dates.join(', ')}
+              {/* Tables & Direct Quotes if available */}
+              {(analysis.tables?.length > 0 || analysis.quotes?.length > 0) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                  {/* Structured Tables */}
+                  {analysis.tables && analysis.tables.length > 0 && (
+                    <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 space-y-3">
+                      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-cyan-400">
+                        <TableIcon className="h-4 w-4" />
+                        <span>Structured Tables ({analysis.tables.length})</span>
+                      </div>
+                      <div className="space-y-4">
+                        {analysis.tables.map((tbl, tIdx) => (
+                          <div key={tbl.id || tIdx} className="overflow-x-auto rounded-xl border border-slate-800">
+                            {tbl.title && (
+                              <div className="bg-slate-900 px-3 py-1.5 text-xs font-bold text-slate-300 border-b border-slate-800">
+                                {tbl.title}
+                              </div>
+                            )}
+                            <table className="w-full text-left text-xs">
+                              <thead className="bg-slate-900/80 text-slate-400 font-semibold border-b border-slate-800">
+                                <tr>
+                                  {tbl.headers.map((h, hIdx) => (
+                                    <th key={hIdx} className="p-2">{h}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-850 text-slate-300 font-mono text-[11px]">
+                                {tbl.rows.map((row, rIdx) => (
+                                  <tr key={rIdx} className="hover:bg-slate-900/40">
+                                    {row.map((cell, cIdx) => (
+                                      <td key={cIdx} className="p-2">{cell}</td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Direct Quotes */}
+                  {analysis.quotes && analysis.quotes.length > 0 && (
+                    <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 space-y-3">
+                      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-pink-400">
+                        <Quote className="h-4 w-4" />
+                        <span>Attributed Direct Quotes ({analysis.quotes.length})</span>
+                      </div>
+                      <div className="space-y-3">
+                        {analysis.quotes.map((q, qIdx) => (
+                          <blockquote
+                            key={q.id || qIdx}
+                            className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 border-l-2 border-l-pink-400 text-xs italic text-slate-300"
+                          >
+                            <p>"{q.text}"</p>
+                            {(q.speaker || q.role) && (
+                              <cite className="not-italic text-[11px] text-pink-300 font-semibold block mt-1.5">
+                                — {q.speaker} {q.role ? `(${q.role})` : ''}
+                              </cite>
+                            )}
+                          </blockquote>
+                        ))}
                       </div>
                     </div>
                   )}
                 </div>
-              </div>
+              )}
             </div>
           )}
 
