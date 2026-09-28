@@ -179,7 +179,7 @@ export function SourceInputSection({
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-400 flex items-center gap-1">
               <Sparkles className="h-3 w-3 text-cyan-400" />
-              Load Sample:
+              Load Demo Sample:
             </span>
             {SAMPLE_TEMPLATES.map((sample) => (
               <button
@@ -336,7 +336,7 @@ export function SourceInputSection({
                 <div className="rounded-xl bg-slate-950/90 border border-slate-800/80 p-2.5 flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2 text-slate-400">
                     <Hash className="h-3.5 w-3.5 text-cyan-400" />
-                    <span className="font-semibold text-slate-300">SHA-256 Provenance:</span>
+                    <span className="font-semibold text-slate-300">SHA-256 Source Fingerprint:</span>
                   </div>
                   <span className="font-mono text-[11px] text-cyan-400 truncate max-w-sm">
                     {calculatingHash ? 'Calculating cryptographic hash...' : fileHash || 'Calculating...'}

@@ -101,8 +101,9 @@ export function Settings() {
               <input
                 type="text"
                 value={fullName}
+                autoComplete="off"
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="Alex Mercer"
+                placeholder="Enter your full name"
                 className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
               />
             </div>

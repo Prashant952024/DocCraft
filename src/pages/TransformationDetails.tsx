@@ -231,7 +231,7 @@ export function TransformationDetails() {
             <Hash className="h-4 w-4 text-cyan-400 shrink-0" />
             <div className="min-w-0">
               <span className="text-[10px] text-cyan-400 block font-bold uppercase tracking-wider">
-                Cryptographic SHA-256 Provenance
+                SHA-256 Source Fingerprint
               </span>
               <span className="font-mono text-[11px] text-slate-200 truncate block max-w-xs">
                 {sourceDoc.source_hash}

@@ -137,7 +137,7 @@ export function Login({ initialMode }: LoginProps) {
             )}
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
               {isSignUp && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5">
@@ -147,8 +147,9 @@ export function Login({ initialMode }: LoginProps) {
                     type="text"
                     required
                     value={fullName}
+                    autoComplete="off"
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder="e.g. Alex Mercer"
+                    placeholder="Enter full name"
                     className="w-full rounded-xl border border-slate-800 bg-slate-950/70 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                   />
                 </div>
@@ -164,8 +165,9 @@ export function Login({ initialMode }: LoginProps) {
                     type="email"
                     required
                     value={email}
+                    autoComplete="off"
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="operator@enterprise.internal"
+                    placeholder="Enter email address"
                     className="w-full rounded-xl border border-slate-800 bg-slate-950/70 pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                   />
                 </div>
@@ -181,8 +183,9 @@ export function Login({ initialMode }: LoginProps) {
                     type="password"
                     required
                     value={password}
+                    autoComplete="new-password"
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••••••"
+                    placeholder="Enter password"
                     className="w-full rounded-xl border border-slate-800 bg-slate-950/70 pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                   />
                 </div>
