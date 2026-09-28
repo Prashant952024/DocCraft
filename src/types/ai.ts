@@ -7,6 +7,7 @@ import {
   CommunicationObjective,
   CanonicalContent,
   ArtifactStatus,
+  PreprocessingMetadata,
 } from './transformation';
 
 export interface AIGenerationRequest {
@@ -21,6 +22,9 @@ export interface AIGenerationRequest {
   detailLevel?: DetailLevel;
   objective?: CommunicationObjective;
   metadata?: Record<string, unknown>;
+  isPreprocessed?: boolean;
+  useMultimodalFallback?: boolean;
+  preprocessingMetadata?: PreprocessingMetadata;
 }
 
 export interface GeneratedArtifact {
@@ -41,11 +45,14 @@ export interface AIGenerationResponse {
 export type GenerationStage =
   | 'idle'
   | 'secure_ingestion'
-  | 'source_analysis'
-  | 'content_understanding'
+  | 'source_preprocessing'
+  | 'content_extraction'
   | 'context_preparation'
   | 'ai_generation'
   | 'output_validation'
   | 'artifact_storage'
   | 'completed'
-  | 'error';
+  | 'error'
+  | 'source_analysis'
+  | 'content_understanding';
+

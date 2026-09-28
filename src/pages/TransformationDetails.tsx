@@ -603,46 +603,124 @@ export function TransformationDetails() {
             </div>
           )}
 
-          {/* Phase 11: Cryptographic Provenance & Audit Record */}
-          <div className="rounded-3xl border border-slate-800/80 bg-slate-900/60 p-6 md:p-8 space-y-4">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-cyan-400" />
-              Cryptographic Ingestion Record & Audit Trace
-            </h3>
+          {/* Phase 11: Cryptographic Provenance & Preprocessing Audit Record */}
+          <div className="rounded-3xl border border-slate-800/80 bg-slate-900/60 p-6 md:p-8 space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-cyan-400" />
+                Source Provenance & Preprocessing Audit Record
+              </h3>
+              <span className="text-xs px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300 font-mono">
+                Transformation ID: {transformation.id.slice(0, 8)}...
+              </span>
+            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-              <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
-                <span className="text-slate-400">Transformation ID:</span>
-                <p className="font-mono text-cyan-300 truncate">{transformation.id}</p>
-              </div>
+            {/* Source Provenance Grid */}
+            <div>
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-2.5">
+                Original Source Provenance
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+                  <span className="text-slate-400 block">Original Source File</span>
+                  <p className="font-semibold text-white truncate">
+                    {sourceDoc?.file_name || 'Direct Text Input'}
+                  </p>
+                </div>
 
-              <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
-                <span className="text-slate-400">Payload Size & MIME:</span>
-                <p className="font-semibold text-white">
-                  {formatBytes(sourceDoc?.file_size)} • {sourceDoc?.mime_type || 'text/plain'}
-                </p>
-              </div>
+                <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+                  <span className="text-slate-400 block">Original SHA-256 Fingerprint</span>
+                  <p className="font-mono text-cyan-300 truncate" title={sourceDoc?.source_hash || 'N/A'}>
+                    {sourceDoc?.source_hash || 'Calculated at ingestion'}
+                  </p>
+                </div>
 
-              <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
-                <span className="text-slate-400">Orchestrator Model:</span>
-                <p className="font-semibold text-white">
-                  {artifacts[0]?.metadata?.model_used || 'Gemini 3.8 Flash'}
-                </p>
-              </div>
+                <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+                  <span className="text-slate-400 block">Storage Retention</span>
+                  <p className="font-semibold text-slate-200">
+                    {sourceDoc?.storage_path ? 'Private Supabase Storage' : 'Database Record'}
+                  </p>
+                </div>
 
-              <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
-                <span className="text-slate-400">Security Architecture:</span>
-                <p className="font-semibold text-emerald-400 flex items-center gap-1">
-                  <CheckCircle2 className="h-3 w-3" />
-                  RLS & Edge Secret Isolated
-                </p>
+                <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+                  <span className="text-slate-400 block">Access Control & Integrity</span>
+                  <p className="font-semibold text-emerald-400 flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Row Level Security (RLS)
+                  </p>
+                </div>
               </div>
             </div>
 
+            {/* Preprocessing Metrics Grid */}
+            {sourceDoc?.preprocessing_metadata && (
+              <div className="pt-2 border-t border-slate-800/80">
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Deterministic Preprocessing Metrics
+                  </span>
+                  <span
+                    className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                      sourceDoc.preprocessing_metadata.fallbackRequired
+                        ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                        : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                    }`}
+                  >
+                    {sourceDoc.preprocessing_metadata.fallbackRequired
+                      ? 'Mode: Multimodal Fallback'
+                      : 'Mode: Optimized Text Context'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800">
+                    <span className="text-slate-400 block mb-0.5">Extraction Method</span>
+                    <span className="font-semibold text-white">
+                      {sourceDoc.preprocessing_metadata.method}
+                    </span>
+                  </div>
+
+                  {sourceDoc.preprocessing_metadata.pageCount && (
+                    <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800">
+                      <span className="text-slate-400 block mb-0.5">Document Pages</span>
+                      <span className="font-semibold text-white">
+                        {sourceDoc.preprocessing_metadata.pageCount} Pages
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800">
+                    <span className="text-slate-400 block mb-0.5">Normalized Chars</span>
+                    <span className="font-semibold text-white">
+                      {sourceDoc.preprocessing_metadata.normalizedCharacterCount?.toLocaleString() || 'N/A'}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800">
+                    <span className="text-slate-400 block mb-0.5">Estimated AI Tokens</span>
+                    <span className="font-semibold text-cyan-300">
+                      ~{sourceDoc.preprocessing_metadata.estimatedTokens?.toLocaleString() || 'N/A'}
+                    </span>
+                  </div>
+                </div>
+
+                {sourceDoc.preprocessing_metadata.preprocessingApplied && (
+                  <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400">
+                    <span className="text-slate-400">Pipeline stages applied:</span>
+                    {sourceDoc.preprocessing_metadata.preprocessingApplied.map((stageName, idx) => (
+                      <span key={idx} className="px-2 py-0.5 rounded bg-slate-950 border border-slate-850 font-mono text-slate-300">
+                        {stageName}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {sourceDoc?.source_text && (
-              <div className="mt-4">
+              <div className="mt-4 pt-2 border-t border-slate-800/80">
                 <span className="text-xs font-semibold text-slate-400 block mb-2">
-                  Original Source Ingestion Text / Extracted Payload:
+                  Preprocessed Source Content Context:
                 </span>
                 <pre className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 text-xs font-mono text-slate-300 whitespace-pre-wrap max-h-60 overflow-y-auto leading-relaxed">
                   {sourceDoc.source_text}

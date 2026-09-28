@@ -20,45 +20,45 @@ export function GenerationProgressModal({
   const stages = [
     {
       id: 'secure_ingestion',
-      label: '1. Secure Ingestion & Cryptographic Hashing',
-      desc: 'Calculating SHA-256 provenance hash and staging private payload...',
+      label: '1. Secure Source Ingestion & Provenance Hashing',
+      desc: 'Calculating SHA-256 source fingerprint and staging to private Supabase storage...',
     },
     {
-      id: 'source_analysis',
-      label: '2. Source Analysis & Multimodal Parsing',
-      desc: 'Extracting text, image, and document elements via Gemini Multimodal...',
+      id: 'source_preprocessing',
+      label: '2. Client-Side Document Preprocessing',
+      desc: 'Executing local text extraction, layout preservation, and scanned PDF detection...',
     },
     {
-      id: 'content_understanding',
-      label: '3. Content Understanding & Canonicalization',
-      desc: 'Establishing unified CanonicalContent schema across facts, entities, and topics...',
+      id: 'content_extraction',
+      label: '3. Content Extraction & Noise Normalization',
+      desc: 'Cleaning unicode noise, detecting factual signals (CVEs, dates, metrics), and structuring sections...',
     },
     {
       id: 'context_preparation',
-      label: '4. Context & Guardrails Alignment',
-      desc: 'Injecting audience, tone, language, and enterprise guardrails...',
+      label: '4. Compact Context Preparation',
+      desc: 'Assembling token-optimized context with enterprise guardrails & tone directives...',
     },
     {
       id: 'ai_generation',
-      label: `5. AI Generation (${outputCount} Artefact Pipelines)`,
-      desc: 'Synthesizing executive summaries, advisories, social threads, and visual specs...',
+      label: `5. AI Transformation (${outputCount} Artefact Pipelines)`,
+      desc: 'Synthesizing executive summaries, advisories, social threads, and structured deliverables with Gemini...',
     },
     {
       id: 'output_validation',
-      label: '6. Output Validation & Safety Checks',
-      desc: 'Validating structured JSON schemas and checking factual integrity...',
+      label: '6. Output Validation & Schema Verification',
+      desc: 'Validating CanonicalContent analysis and verifying structured JSON schemas...',
     },
     {
       id: 'artifact_storage',
       label: '7. Artifact Storage & Provenance Locking',
-      desc: 'Committing deliverables to Supabase with Row Level Security...',
+      desc: 'Committing deliverables to Supabase database with Row Level Security...',
     },
   ];
 
   const stageOrder = [
     'secure_ingestion',
-    'source_analysis',
-    'content_understanding',
+    'source_preprocessing',
+    'content_extraction',
     'context_preparation',
     'ai_generation',
     'output_validation',

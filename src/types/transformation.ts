@@ -66,6 +66,37 @@ export interface Transformation {
   updated_at: string;
 }
 
+export interface DetectedSignals {
+  headings: string[];
+  dates: string[];
+  percentages: string[];
+  currencies: string[];
+  identifiers: string[];
+  urls: string[];
+  bulletCount: number;
+  tableCount: number;
+}
+
+export interface PreprocessingMetadata {
+  method:
+    | 'client_pdf_extraction'
+    | 'client_docx_extraction'
+    | 'client_text_normalization'
+    | 'raw_multimodal_passthrough'
+    | 'scanned_fallback';
+  sourceType: string;
+  pageCount?: number;
+  extractedCharacterCount: number;
+  normalizedCharacterCount: number;
+  wordCount: number;
+  estimatedTokens: number;
+  extractionSuccessful: boolean;
+  fallbackRequired: boolean;
+  fallbackReason?: string;
+  preprocessingApplied: string[];
+  detectedSignals?: DetectedSignals;
+}
+
 export interface SourceDocument {
   id: string;
   transformation_id: string;
@@ -77,6 +108,7 @@ export interface SourceDocument {
   source_text?: string | null;
   source_hash?: string | null;
   source_url?: string | null;
+  preprocessing_metadata?: PreprocessingMetadata | null;
   created_at: string;
 }
 

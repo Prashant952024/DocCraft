@@ -63,25 +63,43 @@ export async function saveSourceDocument(
     sourceText?: string;
     sourceHash?: string;
     sourceUrl?: string;
+    preprocessingMetadata?: import('@/types/transformation').PreprocessingMetadata;
   }
 ): Promise<SourceDocument> {
+  const insertPayload: Record<string, any> = {
+    transformation_id: transformationId,
+    user_id: userId,
+    file_name: doc.fileName || null,
+    mime_type: doc.mimeType || null,
+    file_size: doc.fileSize || null,
+    storage_path: doc.storagePath || null,
+    source_text: doc.sourceText || null,
+    source_hash: doc.sourceHash || null,
+    source_url: doc.sourceUrl || null,
+  };
+
+  if (doc.preprocessingMetadata) {
+    insertPayload.preprocessing_metadata = doc.preprocessingMetadata;
+  }
+
   const { data, error } = await supabase
     .from('source_documents')
-    .insert({
-      transformation_id: transformationId,
-      user_id: userId,
-      file_name: doc.fileName || null,
-      mime_type: doc.mimeType || null,
-      file_size: doc.fileSize || null,
-      storage_path: doc.storagePath || null,
-      source_text: doc.sourceText || null,
-      source_hash: doc.sourceHash || null,
-      source_url: doc.sourceUrl || null,
-    })
+    .insert(insertPayload)
     .select()
     .single();
 
   if (error) {
+    // If preprocessing_metadata column does not exist yet, fallback to saving without it
+    if (error.message?.includes('preprocessing_metadata') || error.code === '42703') {
+      delete insertPayload.preprocessing_metadata;
+      const { data: retryData, error: retryError } = await supabase
+        .from('source_documents')
+        .insert(insertPayload)
+        .select()
+        .single();
+      if (retryError) throw new Error(`Failed to save source document metadata: ${retryError.message}`);
+      return retryData as SourceDocument;
+    }
     throw new Error(`Failed to save source document metadata: ${error.message}`);
   }
 

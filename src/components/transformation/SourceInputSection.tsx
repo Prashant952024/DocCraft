@@ -1,7 +1,31 @@
-import React, { useState, useRef } from 'react';
-import { FileText, UploadCloud, Globe, CheckCircle2, X, File, AlertCircle, Hash, Sparkles } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  FileText,
+  UploadCloud,
+  Globe,
+  CheckCircle2,
+  X,
+  File,
+  AlertCircle,
+  Hash,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
+  Cpu,
+  Layers,
+  FileCode,
+  Check,
+  AlertTriangle,
+  Loader2,
+  Eye,
+} from 'lucide-react';
 import { SourceType } from '@/types/transformation';
 import { formatBytes, calculateSHA256 } from '@/lib/utils';
+import {
+  preprocessFile,
+  preprocessRawText,
+  PreprocessingResult,
+} from '@/services/preprocessor';
 
 interface SourceInputSectionProps {
   sourceType: SourceType;
@@ -16,6 +40,10 @@ interface SourceInputSectionProps {
   setFileHash: (hash: string | null) => void;
   title: string;
   setTitle: (title: string) => void;
+  preprocessingResult: PreprocessingResult | null;
+  setPreprocessingResult: (result: PreprocessingResult | null) => void;
+  isPreprocessing: boolean;
+  setIsPreprocessing: (isPre: boolean) => void;
 }
 
 const SAMPLE_TEMPLATES = [
@@ -30,7 +58,7 @@ Executive Overview:
 A critical memory corruption vulnerability has been identified in the TLS session caching subsystem. An unauthenticated remote attacker can exploit this flaw by sending specially crafted handshake packets, causing denial-of-service and potential arbitrary memory disclosure up to 64KB per request.
 
 Key Findings:
-1. Active reconnaissance observed targeting cloud-hosted cluster ingress controllers starting 03:00 UTC.
+1. Active reconnaissance observed targeting cloud-hosted cluster ingress controllers starting 03:00 UTC on 28 September 2026.
 2. No confirmed remote code execution in our deployment yet, but heap exfiltration has been demonstrated in laboratory replication.
 3. Over 45 production instances require immediate patching and key rotation.
 
@@ -93,15 +121,22 @@ export function SourceInputSection({
   setFileHash,
   title,
   setTitle,
+  preprocessingResult,
+  setPreprocessingResult,
+  isPreprocessing,
+  setIsPreprocessing,
 }: SourceInputSectionProps) {
   const [dragActive, setDragActive] = useState(false);
   const [calculatingHash, setCalculatingHash] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Run preprocessing on file selection
   const handleFileChange = async (file: File | null) => {
     if (!file) {
       setSelectedFile(null);
       setFileHash(null);
+      setPreprocessingResult(null);
       return;
     }
 
@@ -110,32 +145,45 @@ export function SourceInputSection({
       setTitle(file.name.replace(/\.[^/.]+$/, ''));
     }
 
-    // Compute SHA-256 hash
+    // 1. Calculate SHA-256 hash on original raw file
     setCalculatingHash(true);
     try {
       const hash = await calculateSHA256(file);
       setFileHash(hash);
-
-      // If text-readable file (txt, json, md), also populate sourceText for immediate processing
-      if (file.type === 'text/plain' || file.name.endsWith('.txt') || file.name.endsWith('.md') || file.name.endsWith('.json')) {
-        const text = await file.text();
-        setSourceText(text);
-      } else if (file.type.startsWith('image/')) {
-        // Prepare info text for image upload
-        if (!sourceText) {
-          setSourceText(`[Attached Image Source: ${file.name} - Size: ${formatBytes(file.size)}]`);
-        }
-      } else if (file.type === 'application/pdf') {
-        if (!sourceText) {
-          setSourceText(`[Source PDF: ${file.name} (${formatBytes(file.size)}) - Ingested for multimodal transformation]`);
-        }
-      }
     } catch (e) {
       console.error('Error calculating hash:', e);
     } finally {
       setCalculatingHash(false);
     }
+
+    // 2. Perform Intelligent Deterministic Preprocessing
+    setIsPreprocessing(true);
+    try {
+      const prep = await preprocessFile(file);
+      setPreprocessingResult(prep);
+
+      // If text was successfully extracted, populate sourceText with clean normalized version
+      if (prep.success && prep.normalizedText) {
+        setSourceText(prep.normalizedText);
+      } else if (prep.fallbackRequired) {
+        if (!sourceText) {
+          setSourceText(prep.rawExtractedText || `[Multimodal Source: ${file.name}]`);
+        }
+      }
+    } catch (err) {
+      console.error('Preprocessing error:', err);
+    } finally {
+      setIsPreprocessing(false);
+    }
   };
+
+  // Re-preprocess text when in text mode
+  useEffect(() => {
+    if (sourceType === 'text' && sourceText.trim().length > 10) {
+      const result = preprocessRawText(sourceText);
+      setPreprocessingResult(result);
+    }
+  }, [sourceType, sourceText, setPreprocessingResult]);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -150,6 +198,8 @@ export function SourceInputSection({
     setTitle(sample.title);
     setSourceText(sample.content);
     setSourceType('text');
+    setSelectedFile(null);
+    setFileHash(null);
   };
 
   return (
@@ -197,7 +247,10 @@ export function SourceInputSection({
         <div className="grid grid-cols-3 gap-2 p-1.5 rounded-xl bg-slate-950/70 border border-slate-800/80 mb-4">
           <button
             type="button"
-            onClick={() => setSourceType('text')}
+            onClick={() => {
+              setSourceType('text');
+              setSelectedFile(null);
+            }}
             className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-semibold transition-all ${
               sourceType === 'text'
                 ? 'bg-slate-800 text-white shadow-sm border border-slate-700'
@@ -223,7 +276,10 @@ export function SourceInputSection({
 
           <button
             type="button"
-            onClick={() => setSourceType('url')}
+            onClick={() => {
+              setSourceType('url');
+              setSelectedFile(null);
+            }}
             className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-semibold transition-all ${
               sourceType === 'url'
                 ? 'bg-slate-800 text-white shadow-sm border border-slate-700'
@@ -237,7 +293,7 @@ export function SourceInputSection({
 
         {/* 1. TEXT INPUT */}
         {sourceType === 'text' && (
-          <div className="space-y-2">
+          <div className="space-y-4">
             <div className="relative">
               <textarea
                 rows={9}
@@ -250,9 +306,59 @@ export function SourceInputSection({
             <div className="flex justify-between items-center text-xs text-slate-400 px-1">
               <span>Supports structured plain text, markdown, and code blocks</span>
               <span>
-                {sourceText.trim() ? `${sourceText.trim().split(/\s+/).length} words • ${sourceText.length} characters` : '0 words'}
+                {sourceText.trim()
+                  ? `${sourceText.trim().split(/\s+/).length} words • ${sourceText.length} characters`
+                  : '0 words'}
               </span>
             </div>
+
+            {/* Preprocessing Summary Card for Text */}
+            {preprocessingResult && preprocessingResult.metadata.estimatedTokens > 0 && (
+              <div className="rounded-2xl border border-cyan-500/20 bg-gradient-to-r from-slate-900/90 to-slate-900/50 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                      <Check className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-semibold text-white">Source Context Normalized</span>
+                      <p className="text-[11px] text-slate-400">Deterministic signal detection and token optimization active</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-mono px-2.5 py-1 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                      ~{preprocessingResult.metadata.estimatedTokens.toLocaleString()} Estimated AI Tokens
+                    </span>
+                  </div>
+                </div>
+
+                {/* Signals breakdown */}
+                {preprocessingResult.metadata.detectedSignals && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {preprocessingResult.metadata.detectedSignals.dates.length > 0 && (
+                      <span className="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                        📅 {preprocessingResult.metadata.detectedSignals.dates.length} Dates Detected
+                      </span>
+                    )}
+                    {preprocessingResult.metadata.detectedSignals.identifiers.length > 0 && (
+                      <span className="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-cyan-300 border border-slate-700">
+                        🏷️ {preprocessingResult.metadata.detectedSignals.identifiers.length} Identifiers / CVEs
+                      </span>
+                    )}
+                    {preprocessingResult.metadata.detectedSignals.percentages.length > 0 && (
+                      <span className="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-amber-300 border border-slate-700">
+                        📊 {preprocessingResult.metadata.detectedSignals.percentages.length} Metrics
+                      </span>
+                    )}
+                    {preprocessingResult.metadata.detectedSignals.headings.length > 0 && (
+                      <span className="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-purple-300 border border-slate-700">
+                        📑 {preprocessingResult.metadata.detectedSignals.headings.length} Sections
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -286,25 +392,24 @@ export function SourceInputSection({
                   <UploadCloud className="h-6 w-6" />
                 </div>
                 <h4 className="text-sm font-semibold text-white mb-1">
-                  Upload source material
+                  Upload source document
                 </h4>
                 <p className="text-xs text-slate-400 mb-3 text-center max-w-sm">
                   Drag & drop files here, or browse from your computer
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-1.5 text-[11px] font-mono text-slate-400 bg-slate-950/80 px-3 py-1.5 rounded-lg border border-slate-800">
-                  <span className="text-cyan-400 font-semibold">PDF</span> •
-                  <span className="text-blue-400 font-semibold">DOCX</span> •
+                  <span className="text-cyan-400 font-semibold">PDF (Auto-Extracted)</span> •
+                  <span className="text-blue-400 font-semibold">DOCX (Structured)</span> •
                   <span>TXT/MD</span> •
-                  <span className="text-emerald-400 font-semibold">Images</span> •
-                  <span className="text-amber-400 font-semibold">Audio</span> •
-                  <span className="text-purple-400 font-semibold">Video</span>
+                  <span className="text-emerald-400 font-semibold">Images</span>
                 </div>
               </div>
             ) : (
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 space-y-3">
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 space-y-4">
+                {/* File Header */}
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400">
                       <File className="h-5 w-5" />
                     </div>
                     <div>
@@ -312,13 +417,25 @@ export function SourceInputSection({
                         <span className="text-sm font-semibold text-white truncate max-w-xs">
                           {selectedFile.name}
                         </span>
-                        <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Ready
-                        </span>
+                        {isPreprocessing ? (
+                          <span className="flex items-center gap-1 text-[11px] font-medium text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-full">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Preprocessing...
+                          </span>
+                        ) : preprocessingResult?.fallbackRequired ? (
+                          <span className="flex items-center gap-1 text-[11px] font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                            <AlertTriangle className="h-3 w-3" />
+                            Multimodal Mode
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Preprocessed
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-slate-400 font-mono mt-0.5">
-                        {formatBytes(selectedFile.size)} • {selectedFile.type || 'Binary Document'}
+                        {formatBytes(selectedFile.size)} • {selectedFile.type || 'Document'}
                       </p>
                     </div>
                   </div>
@@ -326,34 +443,154 @@ export function SourceInputSection({
                   <button
                     type="button"
                     onClick={() => handleFileChange(null)}
-                    className="text-slate-400 hover:text-rose-400 p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                    className="text-slate-400 hover:text-rose-400 p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
                   >
                     <X className="h-4 w-4" />
                   </button>
                 </div>
 
-                {/* SHA-256 Hash Display */}
-                <div className="rounded-xl bg-slate-950/90 border border-slate-800/80 p-2.5 flex items-center justify-between text-xs">
+                {/* SHA-256 Provenance Box */}
+                <div className="rounded-xl bg-slate-950/90 border border-slate-800/80 p-3 flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2 text-slate-400">
                     <Hash className="h-3.5 w-3.5 text-cyan-400" />
-                    <span className="font-semibold text-slate-300">SHA-256 Source Fingerprint:</span>
+                    <span className="font-semibold text-slate-300">Original Source SHA-256:</span>
                   </div>
                   <span className="font-mono text-[11px] text-cyan-400 truncate max-w-sm">
-                    {calculatingHash ? 'Calculating cryptographic hash...' : fileHash || 'Calculating...'}
+                    {calculatingHash ? 'Calculating cryptographic hash...' : fileHash || 'Pending...'}
                   </span>
                 </div>
 
-                {/* Extracted text preview for files */}
+                {/* Preprocessing Intelligence Badge Card */}
+                {preprocessingResult && !isPreprocessing && (
+                  <div
+                    className={`rounded-xl p-4 border transition-all ${
+                      preprocessingResult.fallbackRequired
+                        ? 'bg-amber-950/20 border-amber-500/30 text-amber-300'
+                        : 'bg-cyan-950/20 border-cyan-500/30 text-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        {preprocessingResult.fallbackRequired ? (
+                          <Layers className="h-4 w-4 text-amber-400" />
+                        ) : (
+                          <Cpu className="h-4 w-4 text-cyan-400" />
+                        )}
+                        <span className="text-xs font-bold uppercase tracking-wider text-white">
+                          {preprocessingResult.fallbackRequired
+                            ? 'Multimodal Routing Active'
+                            : 'Intelligent Preprocessing Complete'}
+                        </span>
+                      </div>
+
+                      <span
+                        className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                          preprocessingResult.fallbackRequired
+                            ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                            : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                        }`}
+                      >
+                        {preprocessingResult.fallbackRequired
+                          ? 'Multimodal Fallback'
+                          : 'Optimized Text Context'}
+                      </span>
+                    </div>
+
+                    {/* Preprocessing Metrics Grid */}
+                    {!preprocessingResult.fallbackRequired ? (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 pb-2 text-xs">
+                        {preprocessingResult.pageCount && (
+                          <div className="p-2 rounded-lg bg-slate-900/80 border border-slate-800">
+                            <span className="text-[10px] uppercase text-slate-400 block">Pages</span>
+                            <span className="font-bold text-white text-sm">{preprocessingResult.pageCount}</span>
+                          </div>
+                        )}
+                        <div className="p-2 rounded-lg bg-slate-900/80 border border-slate-800">
+                          <span className="text-[10px] uppercase text-slate-400 block">Extracted Chars</span>
+                          <span className="font-bold text-white text-sm">
+                            {preprocessingResult.metadata.normalizedCharacterCount.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="p-2 rounded-lg bg-slate-900/80 border border-slate-800">
+                          <span className="text-[10px] uppercase text-slate-400 block">Word Count</span>
+                          <span className="font-bold text-white text-sm">
+                            {preprocessingResult.metadata.wordCount.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="p-2 rounded-lg bg-slate-900/80 border border-slate-800">
+                          <span className="text-[10px] uppercase text-slate-400 block">Estimated Tokens</span>
+                          <span className="font-bold text-cyan-400 text-sm">
+                            ~{preprocessingResult.metadata.estimatedTokens.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-amber-300/90 leading-relaxed pt-1">
+                        {preprocessingResult.fallbackReason ||
+                          'Document routed to Gemini Multimodal visual processing engine.'}
+                      </p>
+                    )}
+
+                    {/* Detected signals preview */}
+                    {preprocessingResult.metadata.detectedSignals && (
+                      <div className="flex flex-wrap gap-1.5 pt-2">
+                        {preprocessingResult.metadata.detectedSignals.dates.length > 0 && (
+                          <span className="text-[11px] px-2 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-800">
+                            📅 {preprocessingResult.metadata.detectedSignals.dates.length} Dates
+                          </span>
+                        )}
+                        {preprocessingResult.metadata.detectedSignals.identifiers.length > 0 && (
+                          <span className="text-[11px] px-2 py-0.5 rounded bg-slate-900 text-cyan-300 border border-slate-800">
+                            🏷️ {preprocessingResult.metadata.detectedSignals.identifiers.length} CVEs/IDs
+                          </span>
+                        )}
+                        {preprocessingResult.metadata.detectedSignals.percentages.length > 0 && (
+                          <span className="text-[11px] px-2 py-0.5 rounded bg-slate-900 text-amber-300 border border-slate-800">
+                            📊 {preprocessingResult.metadata.detectedSignals.percentages.length} Metrics
+                          </span>
+                        )}
+                        {preprocessingResult.metadata.detectedSignals.headings.length > 0 && (
+                          <span className="text-[11px] px-2 py-0.5 rounded bg-slate-900 text-purple-300 border border-slate-800">
+                            📑 {preprocessingResult.metadata.detectedSignals.headings.length} Sections
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Collapsible Preview Toggle */}
+                    {preprocessingResult.normalizedText && (
+                      <div className="pt-3 border-t border-slate-800/80 mt-3">
+                        <button
+                          type="button"
+                          onClick={() => setShowPreview(!showPreview)}
+                          className="flex items-center gap-1.5 text-xs text-cyan-400 hover:text-cyan-300 font-medium transition-colors"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          <span>{showPreview ? 'Hide Preprocessed AI Context' : 'Preview Preprocessed AI Context'}</span>
+                          {showPreview ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                        </button>
+
+                        {showPreview && (
+                          <div className="mt-3 rounded-xl bg-slate-950 p-3.5 border border-slate-800 font-mono text-[11px] text-slate-300 max-h-60 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+                            {preprocessingResult.aiContext || preprocessingResult.normalizedText}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Editable context override textarea */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 mb-1.5">
-                    Extracted / Accompanying Content Context:
+                    Extracted Text Context (Editable):
                   </label>
                   <textarea
                     rows={4}
                     value={sourceText}
                     onChange={(e) => setSourceText(e.target.value)}
-                    placeholder="Enter additional briefing notes or extracted content summary for this file..."
-                    className="w-full rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-200 placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                    placeholder="Extracted document text will appear here automatically..."
+                    className="w-full rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-200 placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 font-mono"
                   />
                 </div>
               </div>
@@ -398,7 +635,7 @@ export function SourceInputSection({
             <div className="rounded-xl bg-slate-900/50 border border-slate-800/80 p-3 flex items-start gap-2.5">
               <AlertCircle className="h-4 w-4 text-cyan-400 mt-0.5 shrink-0" />
               <div className="text-xs text-slate-400 leading-relaxed">
-                URL extraction metadata will be stored in <span className="text-slate-200 font-mono">source_documents</span> for audit and provenance.
+                URL extraction metadata and source content will be saved to <span className="text-slate-200 font-mono">source_documents</span> with SHA-256 fingerprint for audit and provenance.
               </div>
             </div>
           </div>

@@ -20,6 +20,7 @@ import {
 } from '@/services/transformations';
 import { uploadSourceFile } from '@/services/storage';
 import { generateContentWithAI } from '@/services/ai';
+import { preprocessFile, preprocessRawText, PreprocessingResult } from '@/services/preprocessor';
 import { calculateSHA256 } from '@/lib/utils';
 import { Sparkles, AlertCircle, ShieldCheck } from 'lucide-react';
 
@@ -34,6 +35,10 @@ export function CreateTransformation() {
   const [sourceUrl, setSourceUrl] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileHash, setFileHash] = useState<string | null>(null);
+
+  // Preprocessing state
+  const [preprocessingResult, setPreprocessingResult] = useState<PreprocessingResult | null>(null);
+  const [isPreprocessing, setIsPreprocessing] = useState(false);
 
   // Settings state
   const [settings, setSettings] = useState<TransformationSettings>({
@@ -79,13 +84,13 @@ export function CreateTransformation() {
     let transformationId: string | null = null;
 
     try {
-      // Stage 1: Secure Ingestion & SHA-256 Hashing
+      // Stage 1: Secure Ingestion & SHA-256 Hashing of Original Source
       setStage('secure_ingestion');
 
       let storagePath: string | undefined;
       let finalHash: string | undefined = fileHash || undefined;
 
-      // Create database record
+      // Create database transformation record
       const transformation = await createTransformation(
         user.id,
         title.trim(),
@@ -97,7 +102,9 @@ export function CreateTransformation() {
       if (selectedFile) {
         if (!finalHash) {
           finalHash = await calculateSHA256(selectedFile);
+          setFileHash(finalHash);
         }
+        // Upload ORIGINAL raw file to Supabase Storage (Preserving Provenance & Fallback)
         const uploadResult = await uploadSourceFile(
           user.id,
           transformation.id,
@@ -106,29 +113,53 @@ export function CreateTransformation() {
         storagePath = uploadResult.storagePath;
       } else if (sourceText) {
         finalHash = await calculateSHA256(sourceText);
+        setFileHash(finalHash);
       }
 
-      // Stage 2: Source Analysis
-      setStage('source_analysis');
+      // Stage 2: Deterministic Preprocessing (Extraction & Verification)
+      setStage('source_preprocessing');
+
+      let activePrepResult = preprocessingResult;
+      if (!activePrepResult) {
+        if (selectedFile) {
+          activePrepResult = await preprocessFile(selectedFile);
+        } else if (sourceText.trim()) {
+          activePrepResult = preprocessRawText(sourceText);
+        }
+      }
+
+      // Stage 3: Content Extraction & Normalization
+      setStage('content_extraction');
+
+      // Save Source Document Record with Original SHA-256 and Preprocessing Metadata
       await saveSourceDocument(transformation.id, user.id, {
         fileName: selectedFile?.name,
         mimeType: selectedFile?.type,
         fileSize: selectedFile?.size,
         storagePath,
-        sourceText: sourceText.trim() || undefined,
+        sourceText: (activePrepResult?.normalizedText || sourceText).trim() || undefined,
         sourceHash: finalHash,
         sourceUrl: sourceUrl.trim() || undefined,
+        preprocessingMetadata: activePrepResult?.metadata,
       });
 
-      // Stage 3 & 4: Content Understanding & Context Preparation
-      setStage('content_understanding');
-      await new Promise((r) => setTimeout(r, 400));
+      // Stage 4: Context Preparation
       setStage('context_preparation');
 
-      // Stage 5: AI Generation via Supabase Edge Function & Gemini Flash
+      // Determine Payload routing:
+      // If client preprocessing succeeded without fallback requirement, send preprocessed AI context (NO raw PDF/DOCX binary)
+      const isPreprocessed = activePrepResult ? !activePrepResult.fallbackRequired : false;
+      const useMultimodalFallback = activePrepResult ? activePrepResult.fallbackRequired : false;
+
+      const aiSourceContext =
+        activePrepResult && isPreprocessed
+          ? activePrepResult.aiContext || activePrepResult.normalizedText
+          : sourceText.trim() || (selectedFile ? `[Attached Source File: ${selectedFile.name}]` : undefined);
+
+      // Stage 5: AI Transformation via Supabase Edge Function & Gemini Flash
       setStage('ai_generation');
       const aiResponse = await generateContentWithAI({
-        sourceText: sourceText.trim() || (selectedFile ? `[Attached File: ${selectedFile.name}]` : undefined),
+        sourceText: aiSourceContext,
         storagePath,
         fileMimeType: selectedFile?.type,
         outputTypes: settings.outputTypes,
@@ -138,14 +169,16 @@ export function CreateTransformation() {
         detailLevel: settings.detailLevel,
         objective: settings.objective,
         sourceType,
+        isPreprocessed,
+        useMultimodalFallback,
+        preprocessingMetadata: activePrepResult?.metadata,
       });
 
-      // Stage 6: Output Validation
+      // Stage 6: Output Validation & Schema Verification
       setStage('output_validation');
       if (!aiResponse || !aiResponse.artifacts || aiResponse.artifacts.length === 0) {
         throw new Error('Validation failed: No valid artifacts returned by AI model.');
       }
-      await new Promise((r) => setTimeout(r, 300));
 
       // Stage 7: Artifact Storage & Provenance Locking
       setStage('artifact_storage');
@@ -162,7 +195,7 @@ export function CreateTransformation() {
       // Navigate to transformation details workspace
       setTimeout(() => {
         navigate(`/transformation/${transformation.id}`);
-      }, 600);
+      }, 500);
     } catch (err: any) {
       console.error('Transformation pipeline error:', err);
       const errMsg = err.message || 'An error occurred during content transformation.';
@@ -185,7 +218,7 @@ export function CreateTransformation() {
           Create Multimodal Transformation
         </h1>
         <p className="text-sm text-slate-400 mt-1">
-          Ingest raw content through text, documents, or URLs and orchestrate communication artefacts with AI.
+          Ingest raw multimodal content with intelligent client-side preprocessing and orchestrate high-fidelity deliverables with Gemini.
         </p>
       </div>
 
@@ -215,6 +248,10 @@ export function CreateTransformation() {
           setFileHash={setFileHash}
           title={title}
           setTitle={setTitle}
+          preprocessingResult={preprocessingResult}
+          setPreprocessingResult={setPreprocessingResult}
+          isPreprocessing={isPreprocessing}
+          setIsPreprocessing={setIsPreprocessing}
         />
       </div>
 
@@ -248,7 +285,7 @@ export function CreateTransformation() {
         <div className="flex items-center gap-3 text-xs text-slate-400">
           <ShieldCheck className="h-5 w-5 text-cyan-400 shrink-0" />
           <span>
-            Real-time pipeline validation with SHA-256 provenance and zero API key frontend exposure.
+            Deterministic preprocessing preserves original SHA-256 provenance while optimizing Gemini token quota.
           </span>
         </div>
 
@@ -257,7 +294,7 @@ export function CreateTransformation() {
           variant="glow"
           size="lg"
           onClick={handleGenerate}
-          loading={isGenerating}
+          loading={isGenerating || isPreprocessing}
           className="w-full sm:w-auto px-8"
           icon={<Sparkles className="h-5 w-5" />}
         >
