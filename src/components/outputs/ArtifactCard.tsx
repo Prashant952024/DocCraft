@@ -10,6 +10,8 @@ import { PresentationRenderer } from './PresentationRenderer';
 import { VideoPackageRenderer } from './VideoPackageRenderer';
 import { LinkedInIcon, XTwitterIcon } from '@/components/ui/BrandIcons';
 import { updateArtifactStatus, updateArtifactContent } from '@/services/transformations';
+import { ExportMenu } from './ExportMenu';
+import { ProvenanceInfo } from '@/lib/export';
 import {
   Copy,
   Check,
@@ -36,7 +38,9 @@ import { Badge } from '@/components/ui/Badge';
 
 interface ArtifactCardProps {
   artifact: Artifact;
+  provenance?: ProvenanceInfo;
   onUpdate?: () => void;
+  onToast?: (message: string, isError?: boolean) => void;
 }
 
 const TYPE_CONFIG: Record<
@@ -87,7 +91,7 @@ const TYPE_CONFIG: Record<
   },
 };
 
-export function ArtifactCard({ artifact, onUpdate }: ArtifactCardProps) {
+export function ArtifactCard({ artifact, provenance, onUpdate, onToast }: ArtifactCardProps) {
   const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState<'formatted' | 'raw'>('formatted');
   const [status, setStatus] = useState<ArtifactStatus>(artifact.status || 'pending_review');
@@ -111,25 +115,18 @@ export function ArtifactCard({ artifact, onUpdate }: ArtifactCardProps) {
   const Icon = config.icon;
   const artifactTitle = editableTitle;
   const structuredData = artifact.metadata?.structured_data;
+  const canvasElementId = `artifact-canvas-${artifact.id}`;
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(editableContent);
       setCopied(true);
+      if (onToast) onToast(`✓ Copied ${artifactTitle} to clipboard`);
       setTimeout(() => setCopied(false), 2000);
     } catch (e) {
       console.error('Failed to copy content:', e);
+      if (onToast) onToast('Failed to copy content', true);
     }
-  };
-
-  const handleDownload = () => {
-    const element = document.createElement('a');
-    const file = new Blob([editableContent], { type: 'text/markdown;charset=utf-8' });
-    element.href = URL.createObjectURL(file);
-    element.download = `${artifact.artifact_type}_${new Date().toISOString().slice(0, 10)}.md`;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
   };
 
   const handleStatusChange = async (newStatus: ArtifactStatus) => {
@@ -137,9 +134,10 @@ export function ArtifactCard({ artifact, onUpdate }: ArtifactCardProps) {
     try {
       await updateArtifactStatus(artifact.id, newStatus);
       setStatus(newStatus);
+      if (onToast) onToast(newStatus === 'approved' ? `✓ ${artifactTitle} approved` : `Status updated to rejected`);
       if (onUpdate) onUpdate();
     } catch (err: any) {
-      alert(`Failed to update approval status: ${err.message}`);
+      if (onToast) onToast(`Failed to update approval status: ${err.message}`, true);
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -150,9 +148,10 @@ export function ArtifactCard({ artifact, onUpdate }: ArtifactCardProps) {
     try {
       await updateArtifactContent(artifact.id, editableContent, editableTitle);
       setIsEditing(false);
+      if (onToast) onToast(`✓ Saved changes to ${artifactTitle}`);
       if (onUpdate) onUpdate();
     } catch (err: any) {
-      alert(`Failed to save changes: ${err.message}`);
+      if (onToast) onToast(`Failed to save changes: ${err.message}`, true);
     } finally {
       setIsSavingEdit(false);
     }
@@ -168,24 +167,30 @@ export function ArtifactCard({ artifact, onUpdate }: ArtifactCardProps) {
       );
     }
 
-    switch (artifact.artifact_type) {
-      case 'executive_summary':
-        return <ExecutiveSummaryRenderer content={editableContent} structuredData={structuredData} />;
-      case 'advisory':
-        return <AdvisoryRenderer content={editableContent} structuredData={structuredData} />;
-      case 'linkedin_post':
-        return <LinkedInRenderer content={editableContent} structuredData={structuredData} />;
-      case 'x_post':
-        return <TwitterRenderer content={editableContent} structuredData={structuredData} />;
-      case 'infographic':
-        return <InfographicRenderer content={editableContent} structuredData={structuredData} />;
-      case 'presentation':
-        return <PresentationRenderer content={editableContent} structuredData={structuredData} />;
-      case 'video':
-        return <VideoPackageRenderer content={editableContent} structuredData={structuredData} />;
-      default:
-        return <MarkdownRenderer content={editableContent} />;
-    }
+    return (
+      <div id={canvasElementId} data-artifact-id={artifact.id}>
+        {(() => {
+          switch (artifact.artifact_type) {
+            case 'executive_summary':
+              return <ExecutiveSummaryRenderer content={editableContent} structuredData={structuredData} />;
+            case 'advisory':
+              return <AdvisoryRenderer content={editableContent} structuredData={structuredData} />;
+            case 'linkedin_post':
+              return <LinkedInRenderer content={editableContent} structuredData={structuredData} />;
+            case 'x_post':
+              return <TwitterRenderer content={editableContent} structuredData={structuredData} />;
+            case 'infographic':
+              return <InfographicRenderer content={editableContent} structuredData={structuredData} />;
+            case 'presentation':
+              return <PresentationRenderer content={editableContent} structuredData={structuredData} />;
+            case 'video':
+              return <VideoPackageRenderer content={editableContent} structuredData={structuredData} />;
+            default:
+              return <MarkdownRenderer content={editableContent} />;
+          }
+        })()}
+      </div>
+    );
   };
 
   return (
@@ -216,12 +221,12 @@ export function ArtifactCard({ artifact, onUpdate }: ArtifactCardProps) {
               </span>
             </div>
             <p className="text-[11px] text-slate-400">
-              Model: {artifact.metadata?.model_used || 'Gemini 2.5 Flash'} • Provenance Hash Verified
+              Model: {artifact.metadata?.model_used || 'Gemini 3.8 Flash'} • Provenance Hash Verified
             </p>
           </div>
         </div>
 
-        {/* Human Approval Status Controls */}
+        {/* Human Approval Status Badge */}
         <div className="flex flex-wrap items-center gap-2">
           {status === 'approved' ? (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-bold">
@@ -239,65 +244,12 @@ export function ArtifactCard({ artifact, onUpdate }: ArtifactCardProps) {
               <span>Pending Review</span>
             </div>
           )}
-
-          {/* Action buttons: Edit / Approve / Reject */}
-          {!isEditing ? (
-            <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
-              <button
-                type="button"
-                onClick={() => setIsEditing(true)}
-                className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors flex items-center gap-1"
-              >
-                <Edit3 className="h-3.5 w-3.5 text-cyan-400" />
-                <span>Edit</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleStatusChange('approved')}
-                disabled={isUpdatingStatus || status === 'approved'}
-                className="px-2.5 py-1 rounded-lg text-xs font-semibold text-emerald-400 hover:bg-emerald-500/10 transition-colors disabled:opacity-40 flex items-center gap-1"
-              >
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                <span>Approve</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleStatusChange('rejected')}
-                disabled={isUpdatingStatus || status === 'rejected'}
-                className="px-2.5 py-1 rounded-lg text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition-colors disabled:opacity-40 flex items-center gap-1"
-              >
-                <XCircle className="h-3.5 w-3.5" />
-                <span>Reject</span>
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleSaveEdit}
-                loading={isSavingEdit}
-                icon={<Save className="h-3.5 w-3.5" />}
-              >
-                Save Changes
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setIsEditing(false)}
-                icon={<X className="h-3.5 w-3.5" />}
-              >
-                Cancel
-              </Button>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Sub-header Bar: View toggle, Copy & Download */}
-      <div className="flex items-center justify-between px-6 py-2.5 bg-slate-950/40 border-b border-slate-800/60 text-xs">
+      {/* Sub-header Bar: View toggle + Compact Action Area (Copy, Edit, Approve/Reject, ExportMenu) */}
+      <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-2.5 bg-slate-950/40 border-b border-slate-800/60 text-xs">
+        {/* Layout toggle */}
         <div className="flex items-center rounded-lg bg-slate-950 border border-slate-800 p-0.5">
           <button
             onClick={() => setViewMode('formatted')}
@@ -325,37 +277,100 @@ export function ArtifactCard({ artifact, onUpdate }: ArtifactCardProps) {
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleCopy}
-            className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all',
-              copied
-                ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
-                : 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-750 border-slate-700/60'
-            )}
-          >
-            {copied ? (
-              <>
-                <Check className="h-3.5 w-3.5 text-emerald-400" />
-                <span>Copied</span>
-              </>
-            ) : (
-              <>
-                <Copy className="h-3.5 w-3.5 text-slate-400" />
-                <span>Copy Content</span>
-              </>
-            )}
-          </button>
+        {/* Action controls row: Copy, Edit, Approve, Export */}
+        <div className="flex flex-wrap items-center gap-2">
+          {!isEditing ? (
+            <>
+              {/* Copy Action */}
+              <button
+                type="button"
+                onClick={handleCopy}
+                className={cn(
+                  'flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium border transition-all',
+                  copied
+                    ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                    : 'bg-slate-950 text-slate-300 hover:text-white hover:bg-slate-800 border-slate-800'
+                )}
+                title="Copy deliverable content"
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-3.5 w-3.5 text-emerald-400" />
+                    <span>Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3.5 w-3.5 text-slate-400" />
+                    <span>Copy</span>
+                  </>
+                )}
+              </button>
 
-          <button
-            onClick={handleDownload}
-            title="Download as Markdown"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-750 border border-slate-700/60 transition-all"
-          >
-            <Download className="h-3.5 w-3.5 text-slate-400" />
-            <span>Download .md</span>
-          </button>
+              {/* Edit Action */}
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-950 text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-800 transition-colors"
+                title="Edit deliverable content"
+              >
+                <Edit3 className="h-3.5 w-3.5 text-cyan-400" />
+                <span>Edit</span>
+              </button>
+
+              {/* Approval Buttons */}
+              <div className="flex items-center bg-slate-950 p-0.5 rounded-xl border border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => handleStatusChange('approved')}
+                  disabled={isUpdatingStatus || status === 'approved'}
+                  className="px-2 py-1 rounded-lg text-xs font-semibold text-emerald-400 hover:bg-emerald-500/10 transition-colors disabled:opacity-40 flex items-center gap-1"
+                  title="Approve deliverable"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span>Approve</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleStatusChange('rejected')}
+                  disabled={isUpdatingStatus || status === 'rejected'}
+                  className="px-2 py-1 rounded-lg text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition-colors disabled:opacity-40 flex items-center gap-1"
+                  title="Reject deliverable"
+                >
+                  <XCircle className="h-3.5 w-3.5" />
+                  <span>Reject</span>
+                </button>
+              </div>
+
+              {/* Export / Download Menu */}
+              <ExportMenu
+                artifact={artifact}
+                targetElementId={canvasElementId}
+                provenance={provenance}
+                onToast={onToast}
+              />
+            </>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleSaveEdit}
+                loading={isSavingEdit}
+                icon={<Save className="h-3.5 w-3.5" />}
+              >
+                Save Changes
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setIsEditing(false)}
+                icon={<X className="h-3.5 w-3.5" />}
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 

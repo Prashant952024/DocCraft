@@ -12,10 +12,12 @@ import {
   CanonicalContent,
 } from '@/types/transformation';
 import { ArtifactCard } from '@/components/outputs/ArtifactCard';
+import { ExportMenu } from '@/components/outputs/ExportMenu';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { formatDate, formatBytes } from '@/lib/utils';
 import { LinkedInIcon, XTwitterIcon } from '@/components/ui/BrandIcons';
+import { downloadAllArtifacts, ProvenanceInfo } from '@/lib/export';
 import {
   Sparkles,
   ArrowLeft,
@@ -39,6 +41,10 @@ import {
   Clock,
   ShieldAlert,
   Globe,
+  Download,
+  Check,
+  Eye,
+  ExternalLink,
 } from 'lucide-react';
 
 export function TransformationDetails() {
@@ -52,6 +58,17 @@ export function TransformationDetails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Toast feedback state
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastIsError, setToastIsError] = useState(false);
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+
+  const showToast = (msg: string, isErr = false) => {
+    setToastMessage(msg);
+    setToastIsError(isErr);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
 
   const loadData = async () => {
     if (!id) return;
@@ -81,8 +98,39 @@ export function TransformationDetails() {
       await deleteTransformation(id);
       navigate('/history');
     } catch (err: any) {
-      alert(`Delete failed: ${err.message}`);
+      showToast(`Delete failed: ${err.message}`, true);
       setDeleting(false);
+    }
+  };
+
+  const provenance: ProvenanceInfo | undefined = transformation
+    ? {
+        sourceHash: sourceDoc?.source_hash,
+        transformationId: transformation.id,
+        transformationTitle: transformation.title,
+        createdAt: transformation.created_at,
+        modelUsed: artifacts[0]?.metadata?.model_used || 'Gemini 3.8 Flash',
+      }
+    : undefined;
+
+  const handleDownloadAll = async () => {
+    if (artifacts.length === 0) return;
+    setIsDownloadingAll(true);
+    showToast(`Downloading all ${artifacts.length} deliverables...`);
+    try {
+      await downloadAllArtifacts(
+        artifacts,
+        provenance,
+        (completed, total, currentName) => {
+          showToast(`Exporting deliverable ${completed} of ${total}: ${currentName}...`);
+        }
+      );
+      showToast(`✓ All ${artifacts.length} deliverables downloaded successfully`);
+    } catch (err: any) {
+      console.error('Download all error:', err);
+      showToast('Unable to download all deliverables. Please try again.', true);
+    } finally {
+      setIsDownloadingAll(false);
     }
   };
 
@@ -139,7 +187,25 @@ export function TransformationDetails() {
   const approvedCount = artifacts.filter((a) => a.status === 'approved').length;
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-6 pb-12 relative">
+      {/* Toast Notification Banner */}
+      {toastMessage && (
+        <div
+          className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-xl border animate-in slide-in-from-bottom-3 duration-200 ${
+            toastIsError
+              ? 'bg-rose-950/90 border-rose-500/40 text-rose-200'
+              : 'bg-slate-900/95 border-cyan-500/40 text-cyan-200'
+          }`}
+        >
+          {toastIsError ? (
+            <AlertTriangle className="h-4 w-4 text-rose-400 shrink-0" />
+          ) : (
+            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+          )}
+          <span className="text-xs font-semibold">{toastMessage}</span>
+        </div>
+      )}
+
       {/* Top Breadcrumb & Actions */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -163,7 +229,21 @@ export function TransformationDetails() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Global Download All Button */}
+          {artifacts.length > 0 && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleDownloadAll}
+              loading={isDownloadingAll}
+              icon={<Download className="h-3.5 w-3.5" />}
+              className="font-bold shadow-lg shadow-cyan-500/20"
+            >
+              Download All ({artifacts.length})
+            </Button>
+          )}
+
           <Button
             variant="outline"
             size="sm"
@@ -226,19 +306,21 @@ export function TransformationDetails() {
           </div>
         </div>
 
-        {sourceDoc?.source_hash && (
-          <div className="flex items-center gap-2 bg-slate-950/90 px-3.5 py-2.5 rounded-2xl border border-cyan-500/30 text-xs">
-            <Hash className="h-4 w-4 text-cyan-400 shrink-0" />
-            <div className="min-w-0">
-              <span className="text-[10px] text-cyan-400 block font-bold uppercase tracking-wider">
-                SHA-256 Source Fingerprint
-              </span>
-              <span className="font-mono text-[11px] text-slate-200 truncate block max-w-xs">
-                {sourceDoc.source_hash}
-              </span>
+        <div className="flex flex-wrap items-center gap-3">
+          {sourceDoc?.source_hash && (
+            <div className="flex items-center gap-2 bg-slate-950/90 px-3.5 py-2.5 rounded-2xl border border-cyan-500/30 text-xs">
+              <Hash className="h-4 w-4 text-cyan-400 shrink-0" />
+              <div className="min-w-0">
+                <span className="text-[10px] text-cyan-400 block font-bold uppercase tracking-wider">
+                  SHA-256 Source Fingerprint
+                </span>
+                <span className="font-mono text-[11px] text-slate-200 truncate block max-w-xs">
+                  {sourceDoc.source_hash}
+                </span>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Navigation Tabs */}
@@ -252,7 +334,7 @@ export function TransformationDetails() {
           }`}
         >
           <Lightbulb className="h-3.5 w-3.5" />
-          <span>Source Intelligence & Provenance</span>
+          <span>Source Intelligence & Overview</span>
         </button>
 
         {artifacts.map((art) => {
@@ -282,6 +364,101 @@ export function TransformationDetails() {
       {/* Tab Content */}
       {activeTab === 'overview' ? (
         <div className="space-y-6">
+          {/* Deliverables Matrix: Transformation Complete Showcase */}
+          <div className="rounded-3xl border border-cyan-500/30 bg-gradient-to-r from-slate-900/90 via-slate-900/70 to-slate-950/90 p-6 md:p-8 backdrop-blur-xl shadow-2xl space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-5">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">
+                    TRANSFORMATION COMPLETE
+                  </span>
+                </div>
+                <h2 className="text-lg md:text-xl font-extrabold text-white tracking-tight">
+                  {artifacts.length} Communication Deliverables Generated from 1 Multimodal Source
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Review, edit, approve, or download each format individually or in batch.
+                </p>
+              </div>
+
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleDownloadAll}
+                loading={isDownloadingAll}
+                icon={<Download className="h-3.5 w-3.5" />}
+                className="font-bold shadow-lg shadow-cyan-500/20"
+              >
+                Download All Deliverables
+              </Button>
+            </div>
+
+            {/* Grid of Deliverables */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {artifacts.map((art) => {
+                const artTitle = (art.metadata?.title as string) || art.artifact_type.replace('_', ' ');
+                const isApproved = art.status === 'approved';
+
+                return (
+                  <div
+                    key={art.id}
+                    className="rounded-2xl border border-slate-800/80 bg-slate-950/70 p-4 flex flex-col justify-between hover:border-slate-700 transition-all group"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="p-2 rounded-xl bg-slate-900 border border-slate-800">
+                            {getArtifactIcon(art.artifact_type)}
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                              {art.artifact_type.replace('_', ' ')}
+                            </span>
+                            <h4 className="text-xs font-bold text-white group-hover:text-cyan-300 transition-colors line-clamp-1">
+                              {artTitle}
+                            </h4>
+                          </div>
+                        </div>
+
+                        {isApproved ? (
+                          <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                            <Check className="h-3 w-3" /> Approved
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-medium text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                            Pending Review
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-[11px] text-slate-400 line-clamp-2 mb-4 leading-relaxed">
+                        {art.content.slice(0, 140)}...
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-900">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab(art.id)}
+                        className="flex items-center gap-1 text-xs font-semibold text-slate-300 hover:text-white px-2.5 py-1.5 rounded-lg hover:bg-slate-900 transition-colors"
+                      >
+                        <Eye className="h-3.5 w-3.5 text-cyan-400" />
+                        <span>Preview</span>
+                      </button>
+
+                      <ExportMenu
+                        artifact={art}
+                        provenance={provenance}
+                        onToast={showToast}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Phase 7: Canonical Content Intelligence Panel */}
           {analysis && (
             <div className="rounded-3xl border border-slate-800/90 bg-slate-900/70 p-6 md:p-8 backdrop-blur-xl shadow-xl space-y-6">
@@ -448,7 +625,9 @@ export function TransformationDetails() {
 
               <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
                 <span className="text-slate-400">Orchestrator Model:</span>
-                <p className="font-semibold text-white">Gemini 2.5 Flash</p>
+                <p className="font-semibold text-white">
+                  {artifacts[0]?.metadata?.model_used || 'Gemini 3.8 Flash'}
+                </p>
               </div>
 
               <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
@@ -473,7 +652,12 @@ export function TransformationDetails() {
           </div>
         </div>
       ) : currentArtifact ? (
-        <ArtifactCard artifact={currentArtifact} onUpdate={loadData} />
+        <ArtifactCard
+          artifact={currentArtifact}
+          provenance={provenance}
+          onUpdate={loadData}
+          onToast={showToast}
+        />
       ) : (
         <div className="text-center py-12 text-slate-400">Artefact not found</div>
       )}
