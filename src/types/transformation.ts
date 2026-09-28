@@ -98,7 +98,8 @@ export interface PreprocessingMetadata {
 }
 
 import { CanonicalContent } from './canonical';
-export type { CanonicalContent };
+import { ContextSelectionMetadata } from './context';
+export type { CanonicalContent, ContextSelectionMetadata };
 
 export interface SourceDocument {
   id: string;
@@ -113,6 +114,7 @@ export interface SourceDocument {
   source_url?: string | null;
   preprocessing_metadata?: PreprocessingMetadata | null;
   canonical_content?: CanonicalContent | null;
+  context_selection_metadata?: ContextSelectionMetadata | null;
   created_at: string;
 }
 

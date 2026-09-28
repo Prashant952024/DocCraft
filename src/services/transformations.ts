@@ -65,6 +65,7 @@ export async function saveSourceDocument(
     sourceUrl?: string;
     preprocessingMetadata?: import('@/types/transformation').PreprocessingMetadata;
     canonicalContent?: import('@/types/canonical').CanonicalContent;
+    contextSelectionMetadata?: import('@/types/context').ContextSelectionMetadata;
   }
 ): Promise<SourceDocument> {
   const insertPayload: Record<string, any> = {
@@ -88,6 +89,10 @@ export async function saveSourceDocument(
     insertPayload.canonical_extraction_metadata = doc.canonicalContent.extractionMetadata;
   }
 
+  if (doc.contextSelectionMetadata) {
+    insertPayload.context_selection_metadata = doc.contextSelectionMetadata;
+  }
+
   const { data, error } = await supabase
     .from('source_documents')
     .insert(insertPayload)
@@ -99,11 +104,13 @@ export async function saveSourceDocument(
     if (
       error.message?.includes('preprocessing_metadata') ||
       error.message?.includes('canonical_content') ||
+      error.message?.includes('context_selection_metadata') ||
       error.code === '42703'
     ) {
       delete insertPayload.preprocessing_metadata;
       delete insertPayload.canonical_content;
       delete insertPayload.canonical_extraction_metadata;
+      delete insertPayload.context_selection_metadata;
       const { data: retryData, error: retryError } = await supabase
         .from('source_documents')
         .insert(insertPayload)

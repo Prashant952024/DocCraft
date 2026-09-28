@@ -24,6 +24,8 @@ interface RequestBody {
   useMultimodalFallback?: boolean;
   preprocessingMetadata?: Record<string, unknown>;
   canonicalContent?: Record<string, unknown>;
+  selectedContexts?: Record<string, unknown>;
+  contextSelectionMetadata?: Record<string, unknown>;
 }
 
 // Convert ArrayBuffer to Base64 in Deno
@@ -87,6 +89,8 @@ Deno.serve(async (req: Request) => {
       useMultimodalFallback = false,
       preprocessingMetadata,
       canonicalContent,
+      selectedContexts,
+      contextSelectionMetadata,
     } = body;
 
     // Validation
@@ -97,9 +101,9 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    if (!sourceText && !storagePath && !canonicalContent) {
+    if (!sourceText && !storagePath && !canonicalContent && !selectedContexts) {
       return new Response(
-        JSON.stringify({ error: "Source content or canonical data is required for processing." }),
+        JSON.stringify({ error: "Source content, canonical data, or selected context is required for processing." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -427,6 +431,29 @@ SPECIFIC ARTEFACT STRUCTURED_DATA SPECS:
   }
 `;
 
+      let contextPayload = "";
+      if (selectedContexts && Object.keys(selectedContexts).length > 0) {
+        contextPayload = `INTELLIGENTLY REDUCED OUTPUT CONTEXTS (Phase C Context Selection Active):
+"""
+${JSON.stringify(selectedContexts, null, 2)}
+"""
+`;
+      } else if (canonicalContent) {
+        contextPayload = `CANONICAL CONTENT KNOWLEDGE GRAPH:
+"""
+${JSON.stringify(canonicalContent, null, 2)}
+"""
+`;
+      } else if (sourceText) {
+        contextPayload = `SOURCE TEXT CONTENT:
+"""
+${sourceText.trim()}
+"""
+`;
+      } else {
+        contextPayload = "[Source provided via attached binary file/multimodal payload]";
+      }
+
       userPrompt = `MULTIMODAL SOURCE METADATA:
 - Source Modality: ${sourceType}
 - Target Audience: ${audience}
@@ -436,10 +463,9 @@ SPECIFIC ARTEFACT STRUCTURED_DATA SPECS:
 - Objective: ${objective}
 - Requested Output Artefact Types: ${JSON.stringify(outputTypes)}
 
-${canonicalContent ? `CANONICAL CONTENT KNOWLEDGE GRAPH:\n"""\n${JSON.stringify(canonicalContent, null, 2)}\n"""\n` : ""}
-${sourceText ? `SOURCE TEXT CONTENT:\n"""\n${sourceText.trim()}\n"""` : "[Source provided via attached binary file/multimodal payload]"}
+${contextPayload}
 
-Analyze the source thoroughly, establish canonical content understanding, and generate the analysis and all requested artifacts (${outputTypes.join(", ")}). Return only the requested structured JSON object.`;
+Analyze the supplied context thoroughly, establish canonical content understanding, and generate the analysis and all requested artifacts (${outputTypes.join(", ")}). Return only the requested structured JSON object.`;
     }
 
     geminiParts.push({ text: userPrompt });

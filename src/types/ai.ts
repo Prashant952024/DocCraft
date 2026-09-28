@@ -10,6 +10,8 @@ import {
   PreprocessingMetadata,
 } from './transformation';
 
+import { SelectedAIContext, ContextSelectionMetadata } from './context';
+
 export interface AIGenerationRequest {
   sourceText?: string;
   storagePath?: string;
@@ -26,6 +28,8 @@ export interface AIGenerationRequest {
   useMultimodalFallback?: boolean;
   preprocessingMetadata?: PreprocessingMetadata;
   canonicalContent?: CanonicalContent;
+  selectedContexts?: Record<string, SelectedAIContext>;
+  contextSelectionMetadata?: ContextSelectionMetadata;
 }
 
 export interface GeneratedArtifact {

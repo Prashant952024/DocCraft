@@ -35,8 +35,8 @@ export function GenerationProgressModal({
     },
     {
       id: 'context_preparation',
-      label: '4. Compact Context Preparation',
-      desc: 'Assembling token-optimized context with enterprise guardrails & tone directives...',
+      label: '4. Context Selection & Reduction',
+      desc: 'Filtering output-specific canonical context and enforcing deterministic token budgets...',
     },
     {
       id: 'ai_generation',

@@ -51,8 +51,19 @@ import {
   Table as TableIcon,
   ChevronDown,
   ChevronUp,
+  Cpu,
+  Sliders,
+  Filter,
+  Zap,
+  ArrowDownRight,
 } from 'lucide-react';
 import { normalizeCanonicalContent } from '@/services/canonical';
+import {
+  selectContextsForOutputs,
+  buildContextSelectionMetadata,
+  OUTPUT_TOKEN_BUDGETS,
+} from '@/services/contextSelector';
+import { ContextSelectionMetadata, SelectedAIContext } from '@/types/context';
 
 export function TransformationDetails() {
   const { id } = useParams<{ id: string }>();
@@ -184,6 +195,9 @@ export function TransformationDetails() {
     );
   }
 
+  const [activeContextProfile, setActiveContextProfile] = useState<string>('executive_summary');
+  const [showDistilledPrompt, setShowDistilledPrompt] = useState<boolean>(false);
+
   const rawAnalysis =
     sourceDoc?.canonical_content ||
     (artifacts[0]?.metadata?.analysis as CanonicalContent) ||
@@ -202,6 +216,28 @@ export function TransformationDetails() {
   );
 
   const approvedCount = artifacts.filter((a) => a.status === 'approved').length;
+
+  const targetTypes: ArtifactType[] = React.useMemo(() => {
+    if (artifacts.length > 0) {
+      return Array.from(new Set(artifacts.map((a) => a.artifact_type))) as ArtifactType[];
+    }
+    return ['executive_summary', 'advisory', 'linkedin_post'] as ArtifactType[];
+  }, [artifacts]);
+
+  const contextSelectionData = React.useMemo(() => {
+    if (!analysis) return null;
+    const selectedContexts = selectContextsForOutputs(analysis, targetTypes);
+    const metadata: ContextSelectionMetadata =
+      sourceDoc?.context_selection_metadata ||
+      buildContextSelectionMetadata(selectedContexts, analysis);
+    return { selectedContexts, metadata };
+  }, [analysis, sourceDoc?.context_selection_metadata, targetTypes]);
+
+  useEffect(() => {
+    if (artifacts.length > 0 && !artifacts.some((a) => a.artifact_type === activeContextProfile)) {
+      setActiveContextProfile(artifacts[0].artifact_type);
+    }
+  }, [artifacts, activeContextProfile]);
 
   return (
     <div className="space-y-6 pb-12 relative">
@@ -797,6 +833,303 @@ export function TransformationDetails() {
                   )}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Phase C: Context Reduction & Output-Aware Context Selection */}
+          {contextSelectionData && (
+            <div className="rounded-3xl border border-emerald-500/30 bg-slate-900/80 p-6 md:p-8 backdrop-blur-xl shadow-2xl space-y-6">
+              {/* Header */}
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400">
+                    <Sliders className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-bold text-white tracking-tight">
+                        AI Context Optimization & Context Selection
+                      </h3>
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                        Phase C Engine
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Deterministic output-aware context pruning • Sends only targeted semantic subsets to Gemini
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                    -{contextSelectionData.metadata.reductionRatio}% Average Reduction
+                  </span>
+                  <span className="text-xs font-mono text-slate-400 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
+                    0 API Calls (Local Deterministic)
+                  </span>
+                </div>
+              </div>
+
+              {/* Context Optimization Metrics Bar */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+                  <span className="text-slate-400 block flex items-center gap-1">
+                    <Layers className="h-3.5 w-3.5 text-cyan-400" />
+                    Original Canonical Graph
+                  </span>
+                  <p className="text-lg font-bold text-white font-mono">
+                    ~{contextSelectionData.metadata.originalTokens.toLocaleString()}{' '}
+                    <span className="text-xs font-normal text-slate-400">tokens</span>
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+                  <span className="text-slate-400 block flex items-center gap-1">
+                    <Zap className="h-3.5 w-3.5 text-emerald-400" />
+                    Avg. Selected Payload
+                  </span>
+                  <p className="text-lg font-bold text-emerald-300 font-mono">
+                    ~{contextSelectionData.metadata.selectedTokens.toLocaleString()}{' '}
+                    <span className="text-xs font-normal text-slate-400">tokens</span>
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+                  <span className="text-slate-400 block flex items-center gap-1">
+                    <ArrowDownRight className="h-3.5 w-3.5 text-emerald-400" />
+                    Token Efficiency Ratio
+                  </span>
+                  <p className="text-lg font-bold text-emerald-400 font-mono">
+                    {contextSelectionData.metadata.reductionRatio > 0 ? `-${contextSelectionData.metadata.reductionRatio}%` : '0%'}
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+                  <span className="text-slate-400 block flex items-center gap-1">
+                    <Filter className="h-3.5 w-3.5 text-amber-400" />
+                    Optimized Deliverables
+                  </span>
+                  <p className="text-lg font-bold text-amber-300 font-mono">
+                    {Object.keys(contextSelectionData.selectedContexts).length}{' '}
+                    <span className="text-xs font-normal text-slate-400">profiles</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Deliverable Profile Switcher Tabs */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                    <Cpu className="h-3.5 w-3.5 text-emerald-400" />
+                    Output-Specific Context Profiles
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    Click deliverable to inspect selected fields & pruning rationale
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {Object.keys(contextSelectionData.selectedContexts).map((typeKey) => {
+                    const type = typeKey as ArtifactType;
+                    const ctx = (contextSelectionData.selectedContexts as Record<string, SelectedAIContext>)[type];
+                    if (!ctx) return null;
+                    const isActive = activeContextProfile === type;
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setActiveContextProfile(type)}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all border ${
+                          isActive
+                            ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-200 shadow-lg shadow-emerald-950/30'
+                            : 'bg-slate-950/70 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                        }`}
+                      >
+                        {getArtifactIcon(type)}
+                        <span>
+                          {type === 'executive_summary'
+                            ? 'Executive Summary'
+                            : type === 'advisory'
+                            ? 'Advisory Memo'
+                            : type === 'linkedin_post'
+                            ? 'LinkedIn Post'
+                            : type === 'x_post'
+                            ? 'X Thread'
+                            : type === 'infographic'
+                            ? 'Infographic'
+                            : type === 'presentation'
+                            ? 'Presentation'
+                            : type === 'video'
+                            ? 'Video Storyboard'
+                            : type}
+                        </span>
+                        <span
+                          className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                            isActive
+                              ? 'bg-emerald-500/30 text-emerald-200'
+                              : 'bg-slate-900 text-slate-400'
+                          }`}
+                        >
+                          -{ctx.reductionRatio}%
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Active Profile Details Panel */}
+              {(() => {
+                const activeCtx: SelectedAIContext | undefined = (contextSelectionData.selectedContexts as Record<string, SelectedAIContext>)[activeContextProfile];
+                if (!activeCtx) return null;
+                return (
+                  <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-855 pb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold uppercase tracking-wider text-emerald-300">
+                          {activeContextProfile.replace('_', ' ')} Profile
+                        </span>
+                        <span className="text-xs text-slate-500">•</span>
+                        <span className="text-xs font-mono text-slate-300">
+                          Estimated Context: ~{activeCtx.estimatedTokens} tokens
+                        </span>
+                        <span className="text-xs text-slate-500">•</span>
+                        <span className="text-xs font-mono text-slate-400">
+                          Budget Limit: {OUTPUT_TOKEN_BUDGETS[activeCtx.outputType] || 5000} tokens
+                        </span>
+                      </div>
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        -{activeCtx.reductionRatio}% Saved
+                      </span>
+                    </div>
+
+                    {/* Pruning & Inclusion Rationale */}
+                    <div className="space-y-1.5">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
+                        Deterministic Pruning Rationale
+                      </span>
+                      <ul className="space-y-1 text-xs text-slate-300">
+                        {activeCtx.selectionReason.map((reason: string, rIdx: number) => (
+                          <li key={rIdx} className="flex items-start gap-2">
+                            <span className="text-emerald-400 mt-0.5">•</span>
+                            <span>{reason}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Selected vs Excluded Fields Matrix */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                      {/* Selected / Retained Fields */}
+                      <div className="space-y-2 p-3.5 rounded-xl bg-slate-900/60 border border-emerald-500/20">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          Retained Semantic Context
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {activeCtx.facts.length > 0 && (
+                            <span className="px-2 py-0.5 rounded-md bg-emerald-950/60 border border-emerald-800/60 text-emerald-300 text-[11px] font-medium">
+                              Facts ({activeCtx.facts.length})
+                            </span>
+                          )}
+                          {activeCtx.figures.length > 0 && (
+                            <span className="px-2 py-0.5 rounded-md bg-amber-950/60 border border-amber-800/60 text-amber-300 text-[11px] font-medium">
+                              Figures ({activeCtx.figures.length})
+                            </span>
+                          )}
+                          {activeCtx.actions.length > 0 && (
+                            <span className="px-2 py-0.5 rounded-md bg-orange-950/60 border border-orange-800/60 text-orange-300 text-[11px] font-medium">
+                              Actions ({activeCtx.actions.length})
+                            </span>
+                          )}
+                          {activeCtx.entities.length > 0 && (
+                            <span className="px-2 py-0.5 rounded-md bg-blue-950/60 border border-blue-800/60 text-blue-300 text-[11px] font-medium">
+                              Entities ({activeCtx.entities.length})
+                            </span>
+                          )}
+                          {activeCtx.dates.length > 0 && (
+                            <span className="px-2 py-0.5 rounded-md bg-purple-950/60 border border-purple-800/60 text-purple-300 text-[11px] font-medium">
+                              Dates ({activeCtx.dates.length})
+                            </span>
+                          )}
+                          {activeCtx.tables.length > 0 && (
+                            <span className="px-2 py-0.5 rounded-md bg-cyan-950/60 border border-cyan-800/60 text-cyan-300 text-[11px] font-medium">
+                              Tables ({activeCtx.tables.length})
+                            </span>
+                          )}
+                          {activeCtx.quotes.length > 0 && (
+                            <span className="px-2 py-0.5 rounded-md bg-pink-950/60 border border-pink-800/60 text-pink-300 text-[11px] font-medium">
+                              Quotes ({activeCtx.quotes.length})
+                            </span>
+                          )}
+                          <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 text-[11px] font-medium">
+                            Distilled Summary
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Pruned / Excluded Fields */}
+                      <div className="space-y-2 p-3.5 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                          <Filter className="h-3.5 w-3.5 text-slate-500" />
+                          Pruned / Excluded Fields
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {activeCtx.excludedFields.length > 0 ? (
+                            activeCtx.excludedFields.map((f: string, fIdx: number) => (
+                              <span
+                                key={fIdx}
+                                className="px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 text-slate-400 text-[11px] font-mono line-through decoration-slate-600"
+                              >
+                                {f}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs text-slate-500">None (Full context permitted within budget)</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Collapsible Prompt Payload Preview */}
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowDistilledPrompt(!showDistilledPrompt)}
+                        className="flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 font-medium transition-colors"
+                      >
+                        {showDistilledPrompt ? (
+                          <ChevronUp className="h-3.5 w-3.5" />
+                        ) : (
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        )}
+                        <span>{showDistilledPrompt ? 'Hide Gemini Prompt Context Payload' : 'Preview Gemini Prompt Context Payload'}</span>
+                      </button>
+
+                      {showDistilledPrompt && (
+                        <pre className="mt-2.5 p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-300 overflow-x-auto max-h-60 leading-relaxed whitespace-pre-wrap">
+                          {JSON.stringify(
+                            {
+                              targetOutput: activeContextProfile,
+                              estimatedTokens: activeCtx.estimatedTokens,
+                              reductionRatio: `${activeCtx.reductionRatio}%`,
+                              summary: activeCtx.sourceSummary,
+                              factsCount: activeCtx.facts.length,
+                              figuresCount: activeCtx.figures.length,
+                              actionsCount: activeCtx.actions.length,
+                              entitiesCount: activeCtx.entities.length,
+                              tablesCount: activeCtx.tables.length,
+                              quotesCount: activeCtx.quotes.length,
+                            },
+                            null,
+                            2
+                          )}
+                        </pre>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 

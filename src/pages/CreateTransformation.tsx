@@ -23,6 +23,10 @@ import { generateContentWithAI, extractCanonicalContent } from '@/services/ai';
 import { normalizeCanonicalContent } from '@/services/canonical';
 import { preprocessFile, preprocessRawText, PreprocessingResult } from '@/services/preprocessor';
 import { calculateSHA256 } from '@/lib/utils';
+import {
+  selectContextsForOutputs,
+  buildContextSelectionMetadata,
+} from '@/services/contextSelector';
 import { Sparkles, AlertCircle, ShieldCheck } from 'lucide-react';
 
 export function CreateTransformation() {
@@ -160,7 +164,26 @@ export function CreateTransformation() {
         );
       }
 
-      // Save Source Document Record with Original SHA-256, Preprocessing Metadata, and CanonicalContent
+      // Stage 4: Phase C Intelligent Context Selection & Reduction
+      setStage('context_preparation');
+
+      const selectedContexts = selectContextsForOutputs(
+        canonical,
+        settings.outputTypes,
+        {
+          audience: settings.audience,
+          tone: settings.tone,
+          language: settings.language,
+          detailLevel: settings.detailLevel.toLowerCase() as any,
+        }
+      );
+
+      const contextSelectionMetadata = buildContextSelectionMetadata(
+        selectedContexts,
+        canonical
+      );
+
+      // Save Source Document Record with Original SHA-256, Preprocessing Metadata, CanonicalContent, and ContextSelectionMetadata
       await saveSourceDocument(transformation.id, user.id, {
         fileName: selectedFile?.name,
         mimeType: selectedFile?.type,
@@ -171,20 +194,13 @@ export function CreateTransformation() {
         sourceUrl: sourceUrl.trim() || undefined,
         preprocessingMetadata: activePrepResult?.metadata,
         canonicalContent: canonical,
+        contextSelectionMetadata,
       });
 
-      // Stage 4: Context Preparation & Guardrails
-      setStage('context_preparation');
-
-      const aiSourceContext =
-        activePrepResult && isPreprocessed
-          ? activePrepResult.aiContext || activePrepResult.normalizedText
-          : sourceText.trim() || (selectedFile ? `[Attached Source File: ${selectedFile.name}]` : undefined);
-
-      // Stage 5: AI Transformation via Supabase Edge Function & Gemini Flash
+      // Stage 5: AI Transformation via Supabase Edge Function & Gemini Flash (Consuming Selected Contexts)
       setStage('ai_generation');
       const aiResponse = await generateContentWithAI({
-        sourceText: aiSourceContext,
+        sourceText: (selectedFile && !isPreprocessed) ? undefined : cleanSource,
         storagePath,
         fileMimeType: selectedFile?.type,
         outputTypes: settings.outputTypes,
@@ -197,7 +213,8 @@ export function CreateTransformation() {
         isPreprocessed,
         useMultimodalFallback,
         preprocessingMetadata: activePrepResult?.metadata,
-        canonicalContent: canonical,
+        selectedContexts,
+        contextSelectionMetadata,
       });
 
       // Stage 6: Output Validation & Schema Verification
