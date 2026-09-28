@@ -6,6 +6,10 @@
     --font-mono: 'JetBrains Mono', monospace;
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     background-color: #080c14;
     color: #e2e8f0;

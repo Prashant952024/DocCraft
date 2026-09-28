@@ -2,6 +2,8 @@ export type SourceType = 'text' | 'file' | 'url' | 'pdf' | 'docx' | 'image' | 'a
 
 export type TransformationStatus = 'draft' | 'processing' | 'completed' | 'failed';
 
+export type ArtifactStatus = 'pending_review' | 'approved' | 'rejected';
+
 export type ArtifactType =
   | 'executive_summary'
   | 'advisory'
@@ -9,7 +11,6 @@ export type ArtifactType =
   | 'x_post'
   | 'infographic'
   | 'presentation'
-  | 'audio'
   | 'video';
 
 export type TargetAudience =
@@ -85,16 +86,32 @@ export interface Artifact {
   user_id: string;
   artifact_type: ArtifactType;
   content: string;
-  status: string;
-  metadata: Record<string, unknown>;
+  status: ArtifactStatus;
+  metadata: {
+    title?: string;
+    structured_data?: any;
+    analysis?: CanonicalContent;
+    model_used?: string;
+    review_notes?: string;
+    reviewed_at?: string;
+    [key: string]: unknown;
+  };
   created_at: string;
   updated_at: string;
 }
 
-export interface OutputTypeOption {
-  id: ArtifactType;
-  title: string;
-  description: string;
-  category: 'text' | 'visual' | 'media';
-  status: 'active' | 'beta' | 'coming_soon';
+export interface CanonicalContent {
+  summary: string;
+  content_type: string;
+  primary_topic?: string;
+  topics: string[];
+  entities: string[];
+  key_facts: string[];
+  dates?: string[];
+  locations?: string[];
+  detected_language: string;
+  audience?: string;
+  objective?: string;
+  source_hash?: string;
+  validation_status: 'VALIDATED' | 'NEEDS REVIEW';
 }

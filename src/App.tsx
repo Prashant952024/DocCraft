@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '@/hooks/useAuth';
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { LandingPage } from '@/pages/LandingPage';
 import { Login } from '@/pages/Login';
 import { Dashboard } from '@/pages/Dashboard';
 import { CreateTransformation } from '@/pages/CreateTransformation';
@@ -15,8 +16,12 @@ export function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Public Login Route */}
-          <Route path="/login" element={<Login />} />
+          {/* Public Landing Route */}
+          <Route path="/" element={<LandingPage />} />
+
+          {/* Authentication Routes */}
+          <Route path="/login" element={<Login initialMode="signin" />} />
+          <Route path="/signup" element={<Login initialMode="signup" />} />
 
           {/* Protected Application Routes */}
           <Route
@@ -26,7 +31,6 @@ export function App() {
               </ProtectedRoute>
             }
           >
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/create" element={<CreateTransformation />} />
             <Route path="/history" element={<History />} />
@@ -34,8 +38,8 @@ export function App() {
             <Route path="/settings" element={<Settings />} />
           </Route>
 
-          {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          {/* Catch-all fallback to landing */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

@@ -1,11 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Sparkles, Shield, Lock, Mail, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { Sparkles, Shield, Lock, Mail, ArrowRight, CheckCircle2, AlertCircle, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
-export function Login() {
-  const [isSignUp, setIsSignUp] = useState(false);
+interface LoginProps {
+  initialMode?: 'signin' | 'signup';
+}
+
+export function Login({ initialMode }: LoginProps) {
+  const location = useLocation();
+  const [isSignUp, setIsSignUp] = useState(
+    initialMode === 'signup' || location.pathname === '/signup'
+  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -15,7 +22,14 @@ export function Login() {
 
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
+
+  useEffect(() => {
+    if (initialMode) {
+      setIsSignUp(initialMode === 'signup');
+    } else {
+      setIsSignUp(location.pathname === '/signup');
+    }
+  }, [initialMode, location.pathname]);
 
   const from = (location.state as any)?.from?.pathname || '/dashboard';
 
@@ -53,37 +67,48 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#080c14] text-slate-100 flex flex-col justify-between relative overflow-hidden bg-radial-grid">
+    <div className="min-h-screen w-full bg-[#080c14] text-slate-100 flex flex-col justify-between relative overflow-hidden bg-radial-grid font-sans">
       {/* Background glowing gradients */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 h-96 w-[600px] bg-cyan-500/10 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-10 right-10 h-72 w-72 bg-blue-600/10 blur-[100px] pointer-events-none" />
 
       {/* Header */}
-      <header className="px-8 py-6 flex items-center justify-between border-b border-slate-800/60 backdrop-blur-md">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/20">
+      <header className="px-6 md:px-8 py-6 flex items-center justify-between border-b border-slate-800/60 backdrop-blur-md">
+        <Link to="/" className="flex items-center gap-3 group">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/20 group-hover:scale-105 transition-transform">
             <Sparkles className="h-5 w-5 text-white" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-lg font-bold tracking-tight text-white">DocCraft</span>
+              <span className="text-lg font-bold tracking-tight text-white group-hover:text-cyan-300 transition-colors">
+                DocCraft
+              </span>
               <span className="rounded-md bg-cyan-500/10 px-2 py-0.5 text-[10px] font-bold text-cyan-400 border border-cyan-500/20">
                 ENTERPRISE
               </span>
             </div>
             <p className="text-xs text-slate-400 leading-none">Automated Multimodal Content Transformation</p>
           </div>
-        </div>
+        </Link>
 
         <div className="flex items-center gap-2 text-xs text-slate-400">
           <Shield className="h-4 w-4 text-emerald-400" />
-          <span>Supabase Auth & RLS Guarded</span>
+          <span className="hidden sm:inline">Supabase Auth & RLS Guarded</span>
         </div>
       </header>
 
       {/* Main Authentication Card */}
       <main className="flex-1 flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-md space-y-4">
+          {/* Back to Home Button */}
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-cyan-400 transition-colors px-1"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Back to DocCraft</span>
+          </Link>
+
           <div className="rounded-3xl border border-slate-800/90 bg-slate-900/80 p-8 backdrop-blur-xl shadow-2xl shadow-black/50">
             <div className="text-center mb-8">
               <h2 className="text-2xl font-bold tracking-tight text-white">
@@ -199,7 +224,7 @@ export function Login() {
 
       {/* Footer */}
       <footer className="px-8 py-4 border-t border-slate-800/60 flex flex-wrap items-center justify-between text-[11px] text-slate-500">
-        <div>DocCraft Platform v2.0 • Multimodal Content Engine</div>
+        <div>DocCraft Platform • Multimodal Content Engine</div>
         <div className="flex items-center gap-4">
           <span>End-to-End Cryptographic Provenance</span>
           <span>•</span>

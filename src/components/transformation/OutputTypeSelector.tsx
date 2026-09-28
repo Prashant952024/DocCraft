@@ -6,7 +6,6 @@ import {
   AlertTriangle,
   BarChart3,
   Presentation,
-  Headphones,
   Video,
   Check,
 } from 'lucide-react';
@@ -76,16 +75,8 @@ const OUTPUT_OPTIONS: OutputOption[] = [
     tagColor: 'text-purple-400 bg-purple-500/10 border-purple-500/20',
   },
   {
-    id: 'audio',
-    title: 'Audio Briefing Script',
-    description: 'Spoken-word podcast/briefing script formatted for voice synthesis and audio playback.',
-    icon: Headphones,
-    badge: 'Audio Spec',
-    tagColor: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
-  },
-  {
     id: 'video',
-    title: 'Video Storyboard Script',
+    title: 'Video Storyboard Package',
     description: 'Scene-by-scene visual cues, narration voiceover, and on-screen text instructions.',
     icon: Video,
     badge: 'Video Spec',

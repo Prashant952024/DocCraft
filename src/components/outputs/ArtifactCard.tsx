@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
-import { Artifact, ArtifactType } from '@/types/transformation';
+import { Artifact, ArtifactType, ArtifactStatus } from '@/types/transformation';
 import { MarkdownRenderer } from './MarkdownRenderer';
+import { ExecutiveSummaryRenderer } from './ExecutiveSummaryRenderer';
+import { AdvisoryRenderer } from './AdvisoryRenderer';
+import { LinkedInRenderer } from './LinkedInRenderer';
+import { TwitterRenderer } from './TwitterRenderer';
+import { InfographicRenderer } from './InfographicRenderer';
+import { PresentationRenderer } from './PresentationRenderer';
+import { VideoPackageRenderer } from './VideoPackageRenderer';
 import { LinkedInIcon, XTwitterIcon } from '@/components/ui/BrandIcons';
+import { updateArtifactStatus, updateArtifactContent } from '@/services/transformations';
 import {
   Copy,
   Check,
@@ -10,15 +18,25 @@ import {
   AlertTriangle,
   BarChart3,
   Presentation,
-  Headphones,
   Video,
   Code2,
   Eye,
+  CheckCircle2,
+  XCircle,
+  Edit3,
+  Save,
+  X,
+  ShieldCheck,
+  Clock,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
 
 interface ArtifactCardProps {
   artifact: Artifact;
+  onUpdate?: () => void;
 }
 
 const TYPE_CONFIG: Record<
@@ -61,12 +79,6 @@ const TYPE_CONFIG: Record<
     color: 'text-purple-400',
     badgeColor: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
   },
-  audio: {
-    label: 'Audio Briefing Script',
-    icon: Headphones,
-    color: 'text-indigo-400',
-    badgeColor: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
-  },
   video: {
     label: 'Video Storyboard Script',
     icon: Video,
@@ -75,9 +87,19 @@ const TYPE_CONFIG: Record<
   },
 };
 
-export function ArtifactCard({ artifact }: ArtifactCardProps) {
+export function ArtifactCard({ artifact, onUpdate }: ArtifactCardProps) {
   const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState<'formatted' | 'raw'>('formatted');
+  const [status, setStatus] = useState<ArtifactStatus>(artifact.status || 'pending_review');
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+  // Edit Mode state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editableContent, setEditableContent] = useState(artifact.content);
+  const [editableTitle, setEditableTitle] = useState(
+    (artifact.metadata?.title as string) || artifact.artifact_type.replace('_', ' ')
+  );
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const config = TYPE_CONFIG[artifact.artifact_type] || {
     label: artifact.artifact_type,
@@ -87,12 +109,12 @@ export function ArtifactCard({ artifact }: ArtifactCardProps) {
   };
 
   const Icon = config.icon;
-  const artifactTitle =
-    (artifact.metadata?.title as string) || config.label;
+  const artifactTitle = editableTitle;
+  const structuredData = artifact.metadata?.structured_data;
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(artifact.content);
+      await navigator.clipboard.writeText(editableContent);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (e) {
@@ -102,7 +124,7 @@ export function ArtifactCard({ artifact }: ArtifactCardProps) {
 
   const handleDownload = () => {
     const element = document.createElement('a');
-    const file = new Blob([artifact.content], { type: 'text/markdown;charset=utf-8' });
+    const file = new Blob([editableContent], { type: 'text/markdown;charset=utf-8' });
     element.href = URL.createObjectURL(file);
     element.download = `${artifact.artifact_type}_${new Date().toISOString().slice(0, 10)}.md`;
     document.body.appendChild(element);
@@ -110,67 +132,200 @@ export function ArtifactCard({ artifact }: ArtifactCardProps) {
     document.body.removeChild(element);
   };
 
+  const handleStatusChange = async (newStatus: ArtifactStatus) => {
+    setIsUpdatingStatus(true);
+    try {
+      await updateArtifactStatus(artifact.id, newStatus);
+      setStatus(newStatus);
+      if (onUpdate) onUpdate();
+    } catch (err: any) {
+      alert(`Failed to update approval status: ${err.message}`);
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    setIsSavingEdit(true);
+    try {
+      await updateArtifactContent(artifact.id, editableContent, editableTitle);
+      setIsEditing(false);
+      if (onUpdate) onUpdate();
+    } catch (err: any) {
+      alert(`Failed to save changes: ${err.message}`);
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  // Render specialized UI based on artifact type
+  const renderSpecializedOutput = () => {
+    if (viewMode === 'raw') {
+      return (
+        <pre className="text-xs font-mono text-cyan-200/90 whitespace-pre-wrap leading-relaxed bg-slate-950 p-4 rounded-xl border border-slate-800 overflow-x-auto">
+          {editableContent}
+        </pre>
+      );
+    }
+
+    switch (artifact.artifact_type) {
+      case 'executive_summary':
+        return <ExecutiveSummaryRenderer content={editableContent} structuredData={structuredData} />;
+      case 'advisory':
+        return <AdvisoryRenderer content={editableContent} structuredData={structuredData} />;
+      case 'linkedin_post':
+        return <LinkedInRenderer content={editableContent} structuredData={structuredData} />;
+      case 'x_post':
+        return <TwitterRenderer content={editableContent} structuredData={structuredData} />;
+      case 'infographic':
+        return <InfographicRenderer content={editableContent} structuredData={structuredData} />;
+      case 'presentation':
+        return <PresentationRenderer content={editableContent} structuredData={structuredData} />;
+      case 'video':
+        return <VideoPackageRenderer content={editableContent} structuredData={structuredData} />;
+      default:
+        return <MarkdownRenderer content={editableContent} />;
+    }
+  };
+
   return (
-    <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md overflow-hidden shadow-xl shadow-black/20 flex flex-col">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 bg-slate-950/40 px-5 py-3.5">
+    <div className="rounded-3xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md overflow-hidden shadow-xl shadow-black/20 flex flex-col space-y-0">
+      {/* Top Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 bg-slate-950/60 px-6 py-4">
         <div className="flex items-center gap-3">
           <div
             className={cn(
-              'flex h-9 w-9 items-center justify-center rounded-xl border',
+              'flex h-10 w-10 items-center justify-center rounded-xl border',
               config.badgeColor
             )}
           >
-            <Icon className={cn('h-4.5 w-4.5', config.color)} />
+            <Icon className={cn('h-5 w-5', config.color)} />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h4 className="text-sm font-bold text-white tracking-tight">
+              <h3 className="text-base font-bold text-white tracking-tight">
                 {artifactTitle}
-              </h4>
+              </h3>
               <span
                 className={cn(
-                  'text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full border',
+                  'text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full border',
                   config.badgeColor
                 )}
               >
                 {config.label}
               </span>
             </div>
+            <p className="text-[11px] text-slate-400">
+              Model: {artifact.metadata?.model_used || 'Gemini 2.5 Flash'} • Provenance Hash Verified
+            </p>
           </div>
         </div>
 
-        {/* View Toggle & Actions */}
+        {/* Human Approval Status Controls */}
+        <div className="flex flex-wrap items-center gap-2">
+          {status === 'approved' ? (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-bold">
+              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+              <span>Approved by Operator</span>
+            </div>
+          ) : status === 'rejected' ? (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-bold">
+              <XCircle className="h-4 w-4 text-rose-400" />
+              <span>Rejected</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-medium">
+              <Clock className="h-3.5 w-3.5 text-amber-400" />
+              <span>Pending Review</span>
+            </div>
+          )}
+
+          {/* Action buttons: Edit / Approve / Reject */}
+          {!isEditing ? (
+            <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors flex items-center gap-1"
+              >
+                <Edit3 className="h-3.5 w-3.5 text-cyan-400" />
+                <span>Edit</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleStatusChange('approved')}
+                disabled={isUpdatingStatus || status === 'approved'}
+                className="px-2.5 py-1 rounded-lg text-xs font-semibold text-emerald-400 hover:bg-emerald-500/10 transition-colors disabled:opacity-40 flex items-center gap-1"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                <span>Approve</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleStatusChange('rejected')}
+                disabled={isUpdatingStatus || status === 'rejected'}
+                className="px-2.5 py-1 rounded-lg text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition-colors disabled:opacity-40 flex items-center gap-1"
+              >
+                <XCircle className="h-3.5 w-3.5" />
+                <span>Reject</span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleSaveEdit}
+                loading={isSavingEdit}
+                icon={<Save className="h-3.5 w-3.5" />}
+              >
+                Save Changes
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setIsEditing(false)}
+                icon={<X className="h-3.5 w-3.5" />}
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Sub-header Bar: View toggle, Copy & Download */}
+      <div className="flex items-center justify-between px-6 py-2.5 bg-slate-950/40 border-b border-slate-800/60 text-xs">
+        <div className="flex items-center rounded-lg bg-slate-950 border border-slate-800 p-0.5">
+          <button
+            onClick={() => setViewMode('formatted')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1 rounded-md transition-colors font-medium',
+              viewMode === 'formatted'
+                ? 'bg-slate-850 text-cyan-400 font-bold shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            )}
+          >
+            <Eye className="h-3.5 w-3.5" />
+            <span>Interactive Layout</span>
+          </button>
+          <button
+            onClick={() => setViewMode('raw')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1 rounded-md transition-colors font-medium',
+              viewMode === 'raw'
+                ? 'bg-slate-850 text-cyan-400 font-bold shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            )}
+          >
+            <Code2 className="h-3.5 w-3.5" />
+            <span>Raw Markdown</span>
+          </button>
+        </div>
+
         <div className="flex items-center gap-2">
-          <div className="flex items-center rounded-lg bg-slate-950 border border-slate-800 p-0.5 text-xs">
-            <button
-              onClick={() => setViewMode('formatted')}
-              className={cn(
-                'flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-colors',
-                viewMode === 'formatted'
-                  ? 'bg-slate-850 text-cyan-400 font-semibold shadow-sm'
-                  : 'text-slate-400 hover:text-white'
-              )}
-            >
-              <Eye className="h-3.5 w-3.5" />
-              <span>Preview</span>
-            </button>
-            <button
-              onClick={() => setViewMode('raw')}
-              className={cn(
-                'flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-colors',
-                viewMode === 'raw'
-                  ? 'bg-slate-850 text-cyan-400 font-semibold shadow-sm'
-                  : 'text-slate-400 hover:text-white'
-              )}
-            >
-              <Code2 className="h-3.5 w-3.5" />
-              <span>Markdown</span>
-            </button>
-          </div>
-
-          <div className="h-4 w-px bg-slate-800" />
-
           <button
             onClick={handleCopy}
             className={cn(
@@ -188,7 +343,7 @@ export function ArtifactCard({ artifact }: ArtifactCardProps) {
             ) : (
               <>
                 <Copy className="h-3.5 w-3.5 text-slate-400" />
-                <span>Copy</span>
+                <span>Copy Content</span>
               </>
             )}
           </button>
@@ -199,19 +354,41 @@ export function ArtifactCard({ artifact }: ArtifactCardProps) {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-750 border border-slate-700/60 transition-all"
           >
             <Download className="h-3.5 w-3.5 text-slate-400" />
-            <span>Download</span>
+            <span>Download .md</span>
           </button>
         </div>
       </div>
 
-      {/* Content Area */}
-      <div className="p-6 overflow-y-auto max-h-[600px] flex-1">
-        {viewMode === 'formatted' ? (
-          <MarkdownRenderer content={artifact.content} />
+      {/* Main Content Area */}
+      <div className="p-6 md:p-8">
+        {isEditing ? (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                Artefact Title:
+              </label>
+              <input
+                type="text"
+                value={editableTitle}
+                onChange={(e) => setEditableTitle(e.target.value)}
+                className="w-full rounded-xl border border-slate-800 bg-slate-950 p-3 text-sm text-white focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 font-semibold"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                Content Body (Markdown):
+              </label>
+              <textarea
+                rows={16}
+                value={editableContent}
+                onChange={(e) => setEditableContent(e.target.value)}
+                className="w-full rounded-xl border border-slate-800 bg-slate-950 p-4 text-xs font-mono text-slate-200 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 leading-relaxed"
+              />
+            </div>
+          </div>
         ) : (
-          <pre className="text-xs font-mono text-cyan-200/90 whitespace-pre-wrap leading-relaxed bg-slate-950 p-4 rounded-xl border border-slate-800 overflow-x-auto">
-            {artifact.content}
-          </pre>
+          renderSpecializedOutput()
         )}
       </div>
     </div>

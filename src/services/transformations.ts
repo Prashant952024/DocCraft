@@ -5,6 +5,8 @@ import {
   Artifact,
   SourceType,
   TransformationSettings,
+  ArtifactStatus,
+  CanonicalContent,
 } from '@/types/transformation';
 import { GeneratedArtifact } from '@/types/ai';
 
@@ -90,17 +92,18 @@ export async function saveArtifacts(
   transformationId: string,
   userId: string,
   artifacts: GeneratedArtifact[],
-  analysisMetadata?: Record<string, unknown>
+  analysisMetadata?: CanonicalContent
 ): Promise<Artifact[]> {
   const rows = artifacts.map((art) => ({
     transformation_id: transformationId,
     user_id: userId,
     artifact_type: art.type,
     content: art.content,
-    status: 'completed',
+    status: art.status || 'pending_review',
     metadata: {
       title: art.title,
       ...(art.metadata || {}),
+      ...(art.structured_data ? { structured_data: art.structured_data } : {}),
       ...(analysisMetadata ? { analysis: analysisMetadata } : {}),
     },
   }));
@@ -115,6 +118,76 @@ export async function saveArtifacts(
   }
 
   return data as Artifact[];
+}
+
+export async function updateArtifactStatus(
+  artifactId: string,
+  status: ArtifactStatus,
+  reviewNotes?: string
+): Promise<void> {
+  const { data: existing, error: fetchErr } = await supabase
+    .from('artifacts')
+    .select('metadata')
+    .eq('id', artifactId)
+    .single();
+
+  if (fetchErr) {
+    throw new Error(`Failed to fetch artifact for update: ${fetchErr.message}`);
+  }
+
+  const updatedMetadata = {
+    ...(existing?.metadata || {}),
+    ...(reviewNotes !== undefined ? { review_notes: reviewNotes } : {}),
+    reviewed_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabase
+    .from('artifacts')
+    .update({
+      status,
+      metadata: updatedMetadata,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', artifactId);
+
+  if (error) {
+    throw new Error(`Failed to update artifact status: ${error.message}`);
+  }
+}
+
+export async function updateArtifactContent(
+  artifactId: string,
+  content: string,
+  title?: string
+): Promise<void> {
+  const { data: existing, error: fetchErr } = await supabase
+    .from('artifacts')
+    .select('metadata')
+    .eq('id', artifactId)
+    .single();
+
+  if (fetchErr) {
+    throw new Error(`Failed to fetch artifact: ${fetchErr.message}`);
+  }
+
+  const updatedMetadata = {
+    ...(existing?.metadata || {}),
+    ...(title ? { title } : {}),
+    last_edited_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabase
+    .from('artifacts')
+    .update({
+      content,
+      metadata: updatedMetadata,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', artifactId);
+
+  if (error) {
+    throw new Error(`Failed to save artifact edits: ${error.message}`);
+  }
 }
 
 export async function getTransformationWithDetails(transformationId: string): Promise<{

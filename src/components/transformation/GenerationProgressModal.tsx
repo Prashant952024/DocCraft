@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, CheckCircle2, Loader2, ShieldCheck, Cpu } from 'lucide-react';
+import { Sparkles, CheckCircle2, Loader2, ShieldCheck, Cpu, AlertCircle } from 'lucide-react';
 import { GenerationStage } from '@/types/ai';
 
 interface GenerationProgressModalProps {
@@ -19,35 +19,54 @@ export function GenerationProgressModal({
 
   const stages = [
     {
-      id: 'preparing_source',
-      label: 'Preparing source & computing cryptographic SHA-256 hash',
-      desc: 'Validating payload fidelity and verifying integrity...',
+      id: 'secure_ingestion',
+      label: '1. Secure Ingestion & Cryptographic Hashing',
+      desc: 'Calculating SHA-256 provenance hash and staging private payload...',
     },
     {
-      id: 'analyzing_content',
-      label: 'Analyzing content & extracting key intelligence',
-      desc: 'Gemini reasoning engine identifying entities, facts, and structure...',
+      id: 'source_analysis',
+      label: '2. Source Analysis & Multimodal Parsing',
+      desc: 'Extracting text, image, and document elements via Gemini Multimodal...',
     },
     {
-      id: 'orchestrating_outputs',
-      label: `Orchestrating ${outputCount} communication artefacts`,
-      desc: 'Applying enterprise tone guardrails and formatting constraints...',
+      id: 'content_understanding',
+      label: '3. Content Understanding & Canonicalization',
+      desc: 'Establishing unified CanonicalContent schema across facts, entities, and topics...',
     },
     {
-      id: 'persisting_results',
-      label: 'Validating response & persisting to secure database',
-      desc: 'Storing structured outputs in Row-Level-Security storage...',
+      id: 'context_preparation',
+      label: '4. Context & Guardrails Alignment',
+      desc: 'Injecting audience, tone, language, and enterprise guardrails...',
+    },
+    {
+      id: 'ai_generation',
+      label: `5. AI Generation (${outputCount} Artefact Pipelines)`,
+      desc: 'Synthesizing executive summaries, advisories, social threads, and visual specs...',
+    },
+    {
+      id: 'output_validation',
+      label: '6. Output Validation & Safety Checks',
+      desc: 'Validating structured JSON schemas and checking factual integrity...',
+    },
+    {
+      id: 'artifact_storage',
+      label: '7. Artifact Storage & Provenance Locking',
+      desc: 'Committing deliverables to Supabase with Row Level Security...',
     },
   ];
 
+  const stageOrder = [
+    'secure_ingestion',
+    'source_analysis',
+    'content_understanding',
+    'context_preparation',
+    'ai_generation',
+    'output_validation',
+    'artifact_storage',
+    'completed',
+  ];
+
   const getStageStatus = (stageId: string) => {
-    const stageOrder = [
-      'preparing_source',
-      'analyzing_content',
-      'orchestrating_outputs',
-      'persisting_results',
-      'completed',
-    ];
     const currentIndex = stageOrder.indexOf(stage);
     const targetIndex = stageOrder.indexOf(stageId);
 
@@ -63,17 +82,17 @@ export function GenerationProgressModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
-      <div className="relative w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-900/95 p-6 md:p-8 shadow-2xl shadow-cyan-950/40">
-        {/* Glow highlight */}
-        <div className="absolute -top-12 left-1/2 -translate-x-1/2 h-24 w-48 bg-cyan-500/10 blur-3xl pointer-events-none" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-lg p-4">
+      <div className="relative w-full max-w-xl rounded-3xl border border-slate-800 bg-slate-900/95 p-6 md:p-8 shadow-2xl shadow-cyan-950/50">
+        {/* Ambient Top Glow */}
+        <div className="absolute -top-16 left-1/2 -translate-x-1/2 h-28 w-64 bg-cyan-500/15 blur-3xl pointer-events-none" />
 
         <div className="text-center mb-6">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/25">
             {stage === 'completed' ? (
               <CheckCircle2 className="h-7 w-7 text-white" />
             ) : error ? (
-              <Cpu className="h-7 w-7 text-rose-300" />
+              <AlertCircle className="h-7 w-7 text-rose-300" />
             ) : (
               <Sparkles className="h-7 w-7 text-white animate-pulse" />
             )}
@@ -81,31 +100,31 @@ export function GenerationProgressModal({
 
           <h3 className="text-xl font-bold tracking-tight text-white">
             {stage === 'completed'
-              ? 'Transformation Complete'
+              ? 'Transformation Pipeline Complete'
               : error
-              ? 'Transformation Interrupted'
-              : 'Orchestrating Multimodal Transformation'}
+              ? 'Pipeline Error'
+              : 'Executing Multimodal Transformation Pipeline'}
           </h3>
           <p className="text-xs text-slate-400 mt-1">
             {error
               ? 'An error occurred during pipeline execution.'
-              : 'Executing isolated Edge Function & Gemini AI processing.'}
+              : 'Isolated Supabase Edge Function • Gemini 2.5 Flash'}
           </p>
         </div>
 
         {/* Stages list */}
-        <div className="space-y-3.5 mb-6">
+        <div className="space-y-2.5 mb-6 max-h-[380px] overflow-y-auto pr-1">
           {stages.map((s) => {
             const status = getStageStatus(s.id);
 
             return (
               <div
                 key={s.id}
-                className={`flex items-start gap-3.5 p-3 rounded-xl border transition-all ${
+                className={`flex items-start gap-3 p-3 rounded-xl border transition-all ${
                   status === 'active'
-                    ? 'bg-slate-800/80 border-cyan-500/40 shadow-sm'
+                    ? 'bg-slate-800/90 border-cyan-500/50 shadow-sm'
                     : status === 'done'
-                    ? 'bg-slate-950/40 border-slate-800/60 opacity-80'
+                    ? 'bg-slate-950/50 border-slate-800/60 opacity-85'
                     : 'bg-slate-950/20 border-slate-800/30 opacity-40'
                 }`}
               >
@@ -118,6 +137,9 @@ export function GenerationProgressModal({
                   )}
                   {status === 'pending' && (
                     <div className="h-4 w-4 rounded-full border border-slate-700 bg-slate-900" />
+                  )}
+                  {status === 'error' && (
+                    <AlertCircle className="h-4 w-4 text-rose-400" />
                   )}
                 </div>
 
@@ -143,12 +165,12 @@ export function GenerationProgressModal({
         </div>
 
         {/* Footer info */}
-        <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+        <div className="pt-4 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
           <div className="flex items-center gap-1.5">
             <ShieldCheck className="h-3.5 w-3.5 text-cyan-400" />
-            <span>Zero frontend key exposure</span>
+            <span>Cryptographic Provenance Verified</span>
           </div>
-          <span className="font-mono text-cyan-400">Stage: {stage}</span>
+          <span className="font-mono text-cyan-400">Status: {stage}</span>
         </div>
       </div>
     </div>

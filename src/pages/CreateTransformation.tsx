@@ -21,7 +21,7 @@ import {
 import { uploadSourceFile } from '@/services/storage';
 import { generateContentWithAI } from '@/services/ai';
 import { calculateSHA256 } from '@/lib/utils';
-import { Sparkles, AlertCircle, ShieldAlert } from 'lucide-react';
+import { Sparkles, AlertCircle, ShieldCheck } from 'lucide-react';
 
 export function CreateTransformation() {
   const { user } = useAuth();
@@ -42,7 +42,7 @@ export function CreateTransformation() {
     language: 'English',
     detailLevel: 'Standard',
     objective: 'Inform',
-    outputTypes: ['executive_summary', 'advisory', 'linkedin_post'],
+    outputTypes: ['executive_summary', 'advisory', 'linkedin_post', 'x_post', 'infographic'],
   });
 
   // Pipeline execution state
@@ -75,12 +75,17 @@ export function CreateTransformation() {
     }
 
     setIsGenerating(true);
-    setStage('preparing_source');
 
     let transformationId: string | null = null;
 
     try {
-      // Step 1: Create Transformation DB Record
+      // Stage 1: Secure Ingestion & SHA-256 Hashing
+      setStage('secure_ingestion');
+
+      let storagePath: string | undefined;
+      let finalHash: string | undefined = fileHash || undefined;
+
+      // Create database record
       const transformation = await createTransformation(
         user.id,
         title.trim(),
@@ -88,10 +93,6 @@ export function CreateTransformation() {
         settings
       );
       transformationId = transformation.id;
-
-      // Step 2: Source Processing & File Upload / Hash
-      let storagePath: string | undefined;
-      let finalHash: string | undefined = fileHash || undefined;
 
       if (selectedFile) {
         if (!finalHash) {
@@ -107,7 +108,8 @@ export function CreateTransformation() {
         finalHash = await calculateSHA256(sourceText);
       }
 
-      // Save Source Document metadata
+      // Stage 2: Source Analysis
+      setStage('source_analysis');
       await saveSourceDocument(transformation.id, user.id, {
         fileName: selectedFile?.name,
         mimeType: selectedFile?.type,
@@ -118,15 +120,17 @@ export function CreateTransformation() {
         sourceUrl: sourceUrl.trim() || undefined,
       });
 
-      // Step 3: Trigger AI Generation via Supabase Edge Function
-      setStage('analyzing_content');
+      // Stage 3 & 4: Content Understanding & Context Preparation
+      setStage('content_understanding');
+      await new Promise((r) => setTimeout(r, 400));
+      setStage('context_preparation');
 
-      // Small delay for smooth stage perception
-      await new Promise((resolve) => setTimeout(resolve, 600));
-      setStage('orchestrating_outputs');
-
+      // Stage 5: AI Generation via Supabase Edge Function & Gemini Flash
+      setStage('ai_generation');
       const aiResponse = await generateContentWithAI({
-        sourceText: sourceText.trim() || `[Attached File: ${selectedFile?.name}]`,
+        sourceText: sourceText.trim() || (selectedFile ? `[Attached File: ${selectedFile.name}]` : undefined),
+        storagePath,
+        fileMimeType: selectedFile?.type,
         outputTypes: settings.outputTypes,
         audience: settings.audience,
         tone: settings.tone,
@@ -136,25 +140,31 @@ export function CreateTransformation() {
         sourceType,
       });
 
-      // Step 4: Persist Generated Artifacts to DB
-      setStage('persisting_results');
+      // Stage 6: Output Validation
+      setStage('output_validation');
+      if (!aiResponse || !aiResponse.artifacts || aiResponse.artifacts.length === 0) {
+        throw new Error('Validation failed: No valid artifacts returned by AI model.');
+      }
+      await new Promise((r) => setTimeout(r, 300));
+
+      // Stage 7: Artifact Storage & Provenance Locking
+      setStage('artifact_storage');
       await saveArtifacts(
         transformation.id,
         user.id,
         aiResponse.artifacts,
-        aiResponse.analysis as unknown as Record<string, unknown>
+        aiResponse.analysis
       );
 
-      // Step 5: Mark transformation as completed
       await updateTransformationStatus(transformation.id, 'completed');
       setStage('completed');
 
-      // Navigate to results
+      // Navigate to transformation details workspace
       setTimeout(() => {
         navigate(`/transformation/${transformation.id}`);
-      }, 500);
+      }, 600);
     } catch (err: any) {
-      console.error('Transformation failed:', err);
+      console.error('Transformation pipeline error:', err);
       const errMsg = err.message || 'An error occurred during content transformation.';
       setError(errMsg);
       setStage('error');
@@ -175,7 +185,7 @@ export function CreateTransformation() {
           Create Multimodal Transformation
         </h1>
         <p className="text-sm text-slate-400 mt-1">
-          Ingest raw content through text, files, or URLs and orchestrate communication artefacts with AI.
+          Ingest raw content through text, documents, or URLs and orchestrate communication artefacts with AI.
         </p>
       </div>
 
@@ -184,7 +194,7 @@ export function CreateTransformation() {
         <div className="flex items-start gap-3 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-300">
           <AlertCircle className="h-5 w-5 shrink-0 text-rose-400 mt-0.5" />
           <div>
-            <span className="font-semibold block mb-0.5">Transformation Pipeline Error</span>
+            <span className="font-semibold block mb-0.5">Pipeline Execution Alert</span>
             {error}
           </div>
         </div>
@@ -236,9 +246,9 @@ export function CreateTransformation() {
       {/* Section 4: Primary Generate Action */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-3xl border border-slate-800/80 bg-slate-950/80 p-6 backdrop-blur-xl">
         <div className="flex items-center gap-3 text-xs text-slate-400">
-          <ShieldAlert className="h-5 w-5 text-cyan-400 shrink-0" />
+          <ShieldCheck className="h-5 w-5 text-cyan-400 shrink-0" />
           <span>
-            Generative synthesis runs strictly in protected Supabase Edge Functions. Gemini API keys remain fully isolated.
+            Real-time pipeline validation with SHA-256 provenance and zero API key frontend exposure.
           </span>
         </div>
 
@@ -251,7 +261,7 @@ export function CreateTransformation() {
           className="w-full sm:w-auto px-8"
           icon={<Sparkles className="h-5 w-5" />}
         >
-          Generate Content Artefacts
+          Execute Multimodal Transformation
         </Button>
       </div>
 

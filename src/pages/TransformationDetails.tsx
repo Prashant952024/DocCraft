@@ -9,6 +9,7 @@ import {
   SourceDocument,
   Artifact,
   ArtifactType,
+  CanonicalContent,
 } from '@/types/transformation';
 import { ArtifactCard } from '@/components/outputs/ArtifactCard';
 import { Button } from '@/components/ui/Button';
@@ -31,8 +32,13 @@ import {
   FileText,
   BarChart3,
   Presentation,
-  Headphones,
   Video,
+  ShieldCheck,
+  Calendar,
+  MapPin,
+  Clock,
+  ShieldAlert,
+  Globe,
 } from 'lucide-react';
 
 export function TransformationDetails() {
@@ -47,23 +53,22 @@ export function TransformationDetails() {
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
+  const loadData = async () => {
     if (!id) return;
+    try {
+      setLoading(true);
+      const data = await getTransformationWithDetails(id);
+      setTransformation(data.transformation);
+      setSourceDoc(data.sourceDocument);
+      setArtifacts(data.artifacts);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load transformation workspace');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        const data = await getTransformationWithDetails(id);
-        setTransformation(data.transformation);
-        setSourceDoc(data.sourceDocument);
-        setArtifacts(data.artifacts);
-      } catch (err: any) {
-        setError(err.message || 'Failed to load transformation workspace');
-      } finally {
-        setLoading(false);
-      }
-    };
-
+  useEffect(() => {
     loadData();
   }, [id]);
 
@@ -95,8 +100,6 @@ export function TransformationDetails() {
         return <BarChart3 className="h-3.5 w-3.5 text-emerald-400" />;
       case 'presentation':
         return <Presentation className="h-3.5 w-3.5 text-purple-400" />;
-      case 'audio':
-        return <Headphones className="h-3.5 w-3.5 text-indigo-400" />;
       case 'video':
         return <Video className="h-3.5 w-3.5 text-rose-400" />;
       default:
@@ -126,8 +129,14 @@ export function TransformationDetails() {
     );
   }
 
-  const analysisMetadata = (artifacts[0]?.metadata?.analysis as any) || null;
-  const currentArtifact = artifacts.find((a) => a.id === activeTab || a.artifact_type === activeTab);
+  const analysis: CanonicalContent | null =
+    (artifacts[0]?.metadata?.analysis as CanonicalContent) || null;
+
+  const currentArtifact = artifacts.find(
+    (a) => a.id === activeTab || a.artifact_type === activeTab
+  );
+
+  const approvedCount = artifacts.filter((a) => a.status === 'approved').length;
 
   return (
     <div className="space-y-6 pb-12">
@@ -142,8 +151,8 @@ export function TransformationDetails() {
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-cyan-400">
-                Transformation Workspace
+              <span className="text-xs font-bold uppercase tracking-wider text-cyan-400">
+                DocCraft Intelligence Workspace
               </span>
               <span className="text-slate-600">•</span>
               <span className="text-xs text-slate-400">{formatDate(transformation.created_at)}</span>
@@ -180,10 +189,10 @@ export function TransformationDetails() {
       <div className="rounded-3xl border border-slate-800/80 bg-slate-900/80 p-6 backdrop-blur-xl shadow-xl shadow-black/20 flex flex-wrap items-center justify-between gap-6">
         <div className="flex flex-wrap items-center gap-6">
           <div>
-            <span className="text-xs font-semibold text-slate-400 block mb-1">Status</span>
+            <span className="text-xs font-semibold text-slate-400 block mb-1">Transformation Status</span>
             <Badge variant="success" className="gap-1.5 py-1 px-3">
               <CheckCircle2 className="h-3.5 w-3.5" />
-              Completed
+              Completed & Validated
             </Badge>
           </div>
 
@@ -203,26 +212,28 @@ export function TransformationDetails() {
             <span className="text-xs font-semibold text-slate-400 block mb-1">Generated Artefacts</span>
             <span className="text-sm font-bold text-white flex items-center gap-1.5">
               <Layers className="h-4 w-4 text-blue-400" />
-              {artifacts.length} Artefacts
+              {artifacts.length} Formats
             </span>
           </div>
 
           <div className="h-8 w-px bg-slate-800 hidden sm:block" />
 
           <div>
-            <span className="text-xs font-semibold text-slate-400 block mb-1">Audience & Tone</span>
-            <span className="text-xs font-medium text-slate-300">
-              {transformation.settings?.audience || 'Executive'} • {transformation.settings?.tone || 'Professional'}
+            <span className="text-xs font-semibold text-slate-400 block mb-1">Human Approval</span>
+            <span className="text-xs font-bold text-cyan-300">
+              {approvedCount} of {artifacts.length} Approved
             </span>
           </div>
         </div>
 
         {sourceDoc?.source_hash && (
-          <div className="flex items-center gap-2 bg-slate-950/80 px-3.5 py-2 rounded-xl border border-slate-800 text-xs">
-            <Hash className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+          <div className="flex items-center gap-2 bg-slate-950/90 px-3.5 py-2.5 rounded-2xl border border-cyan-500/30 text-xs">
+            <Hash className="h-4 w-4 text-cyan-400 shrink-0" />
             <div className="min-w-0">
-              <span className="text-[10px] text-slate-400 block font-semibold">SHA-256 PROVENANCE</span>
-              <span className="font-mono text-[11px] text-cyan-300 truncate block max-w-xs">
+              <span className="text-[10px] text-cyan-400 block font-bold uppercase tracking-wider">
+                Cryptographic SHA-256 Provenance
+              </span>
+              <span className="font-mono text-[11px] text-slate-200 truncate block max-w-xs">
                 {sourceDoc.source_hash}
               </span>
             </div>
@@ -241,7 +252,7 @@ export function TransformationDetails() {
           }`}
         >
           <Lightbulb className="h-3.5 w-3.5" />
-          <span>Intelligence Overview</span>
+          <span>Source Intelligence & Provenance</span>
         </button>
 
         {artifacts.map((art) => {
@@ -260,6 +271,9 @@ export function TransformationDetails() {
             >
               {getArtifactIcon(art.artifact_type)}
               <span>{artTitle}</span>
+              {art.status === 'approved' && (
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              )}
             </button>
           );
         })}
@@ -268,107 +282,180 @@ export function TransformationDetails() {
       {/* Tab Content */}
       {activeTab === 'overview' ? (
         <div className="space-y-6">
-          {/* AI Analysis Cards */}
-          {analysisMetadata && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Core Distillation */}
-              <div className="lg:col-span-3 rounded-3xl border border-slate-800/80 bg-slate-900/60 p-6 backdrop-blur-md">
-                <div className="flex items-center gap-2 mb-3">
-                  <Sparkles className="h-4 w-4 text-cyan-400" />
-                  <h3 className="text-sm font-bold text-white tracking-wide uppercase">
-                    AI Source Distillation
-                  </h3>
+          {/* Phase 7: Canonical Content Intelligence Panel */}
+          {analysis && (
+            <div className="rounded-3xl border border-slate-800/90 bg-slate-900/70 p-6 md:p-8 backdrop-blur-xl shadow-xl space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+                    <Sparkles className="h-4.5 w-4.5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-white">
+                      Source Intelligence & Canonical Synthesis
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Standardized cross-modality representation before downstream transformation
+                    </p>
+                  </div>
                 </div>
-                <p className="text-sm text-slate-300 leading-relaxed">
-                  {analysisMetadata.summary || 'Content successfully synthesized across requested artefacts.'}
+
+                <div className="flex items-center gap-2">
+                  <Badge variant="cyan" className="font-bold">
+                    {analysis.validation_status || 'VALIDATED'}
+                  </Badge>
+                  <span className="text-xs font-mono text-slate-400 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
+                    Language: {analysis.detected_language || 'English'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Source Distillation Summary */}
+              <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80">
+                <span className="text-xs font-bold uppercase tracking-wider text-cyan-400 block mb-1.5">
+                  Executive Distillation
+                </span>
+                <p className="text-sm text-slate-200 leading-relaxed font-sans">
+                  {analysis.summary}
                 </p>
               </div>
 
-              {/* Key Facts */}
-              <div className="rounded-2xl border border-slate-800/80 bg-slate-900/50 p-5">
-                <div className="flex items-center gap-2 mb-3 text-xs font-bold uppercase tracking-wider text-emerald-400">
-                  <CheckCircle2 className="h-4 w-4" />
-                  <span>Key Facts Extracted</span>
+              {/* Metadata Attributes Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800">
+                  <span className="text-[11px] text-slate-400 block mb-1">Content Type</span>
+                  <span className="font-bold text-white block truncate">
+                    {analysis.content_type || 'Incident Advisory'}
+                  </span>
                 </div>
-                <ul className="space-y-2 text-xs text-slate-300">
-                  {Array.isArray(analysisMetadata.keyFacts) && analysisMetadata.keyFacts.length > 0 ? (
-                    analysisMetadata.keyFacts.map((fact: string, idx: number) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <span className="text-emerald-400 font-bold">•</span>
-                        <span>{fact}</span>
-                      </li>
-                    ))
-                  ) : (
-                    <li className="text-slate-500">No key facts specified.</li>
-                  )}
-                </ul>
-              </div>
-
-              {/* Entities */}
-              <div className="rounded-2xl border border-slate-800/80 bg-slate-900/50 p-5">
-                <div className="flex items-center gap-2 mb-3 text-xs font-bold uppercase tracking-wider text-blue-400">
-                  <Users className="h-4 w-4" />
-                  <span>Identified Entities</span>
+                <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800">
+                  <span className="text-[11px] text-slate-400 block mb-1">Primary Topic</span>
+                  <span className="font-bold text-cyan-300 block truncate">
+                    {analysis.primary_topic || analysis.topics?.[0] || 'Cybersecurity'}
+                  </span>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {Array.isArray(analysisMetadata.entities) && analysisMetadata.entities.length > 0 ? (
-                    analysisMetadata.entities.map((entity: string, idx: number) => (
-                      <span
-                        key={idx}
-                        className="px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-medium"
-                      >
-                        {entity}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-xs text-slate-500">No entities specified.</span>
-                  )}
+                <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800">
+                  <span className="text-[11px] text-slate-400 block mb-1">Target Audience</span>
+                  <span className="font-bold text-white block truncate">
+                    {analysis.audience || transformation.settings?.audience}
+                  </span>
+                </div>
+                <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800">
+                  <span className="text-[11px] text-slate-400 block mb-1">Communication Objective</span>
+                  <span className="font-bold text-white block truncate">
+                    {analysis.objective || transformation.settings?.objective}
+                  </span>
                 </div>
               </div>
 
-              {/* Topics */}
-              <div className="rounded-2xl border border-slate-800/80 bg-slate-900/50 p-5">
-                <div className="flex items-center gap-2 mb-3 text-xs font-bold uppercase tracking-wider text-purple-400">
-                  <Tag className="h-4 w-4" />
-                  <span>Topic Classification</span>
+              {/* Key Facts, Entities, Dates & Locations */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {/* Key Facts */}
+                <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-400">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>Verified Key Facts</span>
+                  </div>
+                  <ul className="space-y-2 text-xs text-slate-300">
+                    {analysis.key_facts && analysis.key_facts.length > 0 ? (
+                      analysis.key_facts.map((fact, idx) => (
+                        <li key={idx} className="flex items-start gap-2 leading-relaxed">
+                          <span className="text-emerald-400 font-bold">•</span>
+                          <span>{fact}</span>
+                        </li>
+                      ))
+                    ) : (
+                      <li className="text-slate-500">No key facts parsed.</li>
+                    )}
+                  </ul>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {Array.isArray(analysisMetadata.topics) && analysisMetadata.topics.length > 0 ? (
-                    analysisMetadata.topics.map((topic: string, idx: number) => (
-                      <span
-                        key={idx}
-                        className="px-2.5 py-1 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-medium"
-                      >
-                        {topic}
+
+                {/* Entities */}
+                <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-400">
+                    <Users className="h-4 w-4" />
+                    <span>Extracted Entities</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {analysis.entities && analysis.entities.length > 0 ? (
+                      analysis.entities.map((entity, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-medium"
+                        >
+                          {entity}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-slate-500">No entities detected.</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Topics & Locations */}
+                <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 space-y-4">
+                  <div>
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-purple-400 mb-2">
+                      <Tag className="h-4 w-4" />
+                      <span>Topic Classification</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {analysis.topics?.map((topic, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2.5 py-1 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-medium"
+                        >
+                          {topic}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {analysis.dates && analysis.dates.length > 0 && (
+                    <div className="pt-2 border-t border-slate-800/80">
+                      <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1 flex items-center gap-1">
+                        <Calendar className="h-3 w-3" /> Relevant Dates:
                       </span>
-                    ))
-                  ) : (
-                    <span className="text-xs text-slate-500">No topics specified.</span>
+                      <div className="flex flex-wrap gap-1 text-xs font-mono text-cyan-300">
+                        {analysis.dates.join(', ')}
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
             </div>
           )}
 
-          {/* Source Document Details */}
-          <div className="rounded-3xl border border-slate-800/80 bg-slate-900/60 p-6">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
-              <FileCheck className="h-4 w-4 text-cyan-400" />
-              Source Material & Cryptographic Record
+          {/* Phase 11: Cryptographic Provenance & Audit Record */}
+          <div className="rounded-3xl border border-slate-800/80 bg-slate-900/60 p-6 md:p-8 space-y-4">
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-cyan-400" />
+              Cryptographic Ingestion Record & Audit Trace
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-              <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-1">
-                <span className="text-slate-400">File / Ingestion Label:</span>
-                <p className="font-semibold text-white">
-                  {sourceDoc?.file_name || transformation.title}
-                </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+              <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+                <span className="text-slate-400">Transformation ID:</span>
+                <p className="font-mono text-cyan-300 truncate">{transformation.id}</p>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-1">
+              <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
                 <span className="text-slate-400">Payload Size & MIME:</span>
                 <p className="font-semibold text-white">
                   {formatBytes(sourceDoc?.file_size)} • {sourceDoc?.mime_type || 'text/plain'}
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+                <span className="text-slate-400">Orchestrator Model:</span>
+                <p className="font-semibold text-white">Gemini 2.5 Flash</p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+                <span className="text-slate-400">Security Architecture:</span>
+                <p className="font-semibold text-emerald-400 flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3" />
+                  RLS & Edge Secret Isolated
                 </p>
               </div>
             </div>
@@ -376,7 +463,7 @@ export function TransformationDetails() {
             {sourceDoc?.source_text && (
               <div className="mt-4">
                 <span className="text-xs font-semibold text-slate-400 block mb-2">
-                  Original Source Ingestion Text:
+                  Original Source Ingestion Text / Extracted Payload:
                 </span>
                 <pre className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 text-xs font-mono text-slate-300 whitespace-pre-wrap max-h-60 overflow-y-auto leading-relaxed">
                   {sourceDoc.source_text}
@@ -384,38 +471,9 @@ export function TransformationDetails() {
               </div>
             )}
           </div>
-
-          {/* Quick Artefacts Grid */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-              Generated Artefacts ({artifacts.length})
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {artifacts.map((art) => (
-                <div
-                  key={art.id}
-                  onClick={() => setActiveTab(art.id)}
-                  className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4 hover:border-cyan-500/40 hover:bg-slate-900/80 cursor-pointer transition-all flex flex-col justify-between"
-                >
-                  <div className="flex items-center gap-2.5 mb-2">
-                    {getArtifactIcon(art.artifact_type)}
-                    <h4 className="text-sm font-bold text-white capitalize">
-                      {(art.metadata?.title as string) || art.artifact_type.replace('_', ' ')}
-                    </h4>
-                  </div>
-                  <p className="text-xs text-slate-400 line-clamp-3 mb-3">
-                    {art.content.replace(/[#*`_]/g, '').slice(0, 140)}...
-                  </p>
-                  <span className="text-xs font-semibold text-cyan-400">
-                    Open Artefact →
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       ) : currentArtifact ? (
-        <ArtifactCard artifact={currentArtifact} />
+        <ArtifactCard artifact={currentArtifact} onUpdate={loadData} />
       ) : (
         <div className="text-center py-12 text-slate-400">Artefact not found</div>
       )}

@@ -57,6 +57,27 @@ Rollout Schedule:
 - Alpha Testing: Internal infrastructure team (Oct 2026)
 - Enterprise General Availability: Q4 2026`,
   },
+  {
+    name: 'GovTech Directive',
+    title: 'Emergency Directive: Critical Infrastructure Perimeter Hardening',
+    content: `GOVERNMENT CYBERSECURITY DIRECTIVE: ED-2026-04
+Issuing Agency: Federal Cyber Defense Administration
+Target Audience: State, Local, Tribal, and Territorial (SLTT) Critical Infrastructure Operators
+Priority: High Emergency Notice
+
+Summary of Directive:
+In response to widespread automated credential stuffing and edge appliance exploitation, all critical infrastructure entities operating public-facing supervisory control and data acquisition (SCADA) interfaces must enforce strict hardware-bound Multi-Factor Authentication (MFA) and terminate all legacy remote access protocols within 72 hours.
+
+Key Mandatory Directives:
+1. Disable unencrypted HTTP and Telnet management ports on all industrial edge routers.
+2. Require FIDO2/WebAuthn compliant security keys for all administrative ingress points.
+3. Establish out-of-band monitoring pipelines to stream syslog telemetry to the central intelligence hub.
+4. Report all unauthorized authentication attempts exceeding 5 consecutive failures to the national incident coordinator.
+
+Timeline:
+- Initial compliance verification: 48 Hours
+- Final remediation sign-off: 72 Hours`,
+  },
 ];
 
 export function SourceInputSection({
