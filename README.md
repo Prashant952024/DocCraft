@@ -2,12 +2,16 @@
 
 DocCraft is an AI-powered document transformation platform that converts multimodal source files (PDF, DOCX, Markdown, Text, Image, and URL) into structured, audience-specific communication deliverables using client-side preprocessing, semantic extraction, output-aware context reduction, and Google Gemini 3.8 Flash.
 
+[![Live Demo](https://img.shields.io/badge/Live_Demo-doccraft--ae0b2.web.app-0284c7?style=for-the-badge&logo=firebase&logoColor=white)](https://doccraft-ae0b2.web.app)
+
 [![React](https://img.shields.io/badge/React-19.3-61dafb?logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7.0-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-8.3-646cff?logo=vite&logoColor=white)](https://vitejs.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.3-38bdf8?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![Supabase](https://img.shields.io/badge/Supabase-Auth%20%7C%20Postgres%20%7C%20Storage%20%7C%20Edge%20Functions-3ecf8e?logo=supabase&logoColor=white)](https://supabase.com/)
 [![Gemini](https://img.shields.io/badge/AI_Model-Gemini_3.8_Flash-8e75ff?logo=google&logoColor=white)](https://ai.google.dev/)
+
+> 🌐 **Live Deployed Application**: [https://doccraft-ae0b2.web.app](https://doccraft-ae0b2.web.app)
 
 ---
 
@@ -577,6 +581,7 @@ firebase deploy --only hosting
 
 * **Public Directory**: `dist`
 * **SPA Rewrites**: All routes (`**`) redirect to `/index.html`.
+* **Live Deployment**: [https://doccraft-ae0b2.web.app](https://doccraft-ae0b2.web.app)
 
 > [!NOTE]
 > Firebase Hosting serves the static React application. Backend database, authentication, storage, and serverless AI processing are executed on Supabase.
