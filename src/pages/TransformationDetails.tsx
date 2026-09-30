@@ -323,10 +323,26 @@ export function TransformationDetails() {
         <div className="flex flex-wrap items-center gap-6">
           <div>
             <span className="text-xs font-semibold text-slate-400 block mb-1">Transformation Status</span>
-            <Badge variant="success" className="gap-1.5 py-1 px-3">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              Completed & Validated
-            </Badge>
+            {transformation.status === 'completed' ? (
+              <Badge variant="success" className="gap-1.5 py-1 px-3">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Completed & Validated
+              </Badge>
+            ) : transformation.status === 'processing' ? (
+              <Badge variant="warning" className="gap-1.5 py-1 px-3">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Processing AI Deliverables
+              </Badge>
+            ) : transformation.status === 'failed' ? (
+              <Badge variant="destructive" className="gap-1.5 py-1 px-3">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                Transformation Failed
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="gap-1.5 py-1 px-3">
+                Draft
+              </Badge>
+            )}
           </div>
 
           <div className="h-8 w-px bg-slate-800 hidden sm:block" />
@@ -392,7 +408,7 @@ export function TransformationDetails() {
 
         {artifacts.map((art) => {
           const isActive = activeTab === art.id || activeTab === art.artifact_type;
-          const artTitle = (art.metadata?.title as string) || art.artifact_type.replace('_', ' ');
+          const artTitle = (art.metadata?.title as string) || (art.artifact_type ? art.artifact_type.replace('_', ' ') : 'Artefact');
 
           return (
             <button
@@ -422,94 +438,124 @@ export function TransformationDetails() {
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-5">
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">
-                    TRANSFORMATION COMPLETE
+                  <span className={`flex h-2 w-2 rounded-full ${transformation.status === 'failed' ? 'bg-rose-400' : 'bg-emerald-400 animate-pulse'}`} />
+                  <span className={`text-xs font-bold uppercase tracking-widest ${transformation.status === 'failed' ? 'text-rose-400' : 'text-emerald-400'}`}>
+                    {transformation.status === 'failed' ? 'TRANSFORMATION FAILED' : 'TRANSFORMATION COMPLETE'}
                   </span>
                 </div>
                 <h2 className="text-lg md:text-xl font-extrabold text-white tracking-tight">
-                  {artifacts.length} Communication Deliverables Generated from 1 Multimodal Source
+                  {artifacts.length > 0
+                    ? `${artifacts.length} Communication Deliverables Generated from 1 Multimodal Source`
+                    : 'Transformation Deliverables'}
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Review, edit, approve, or download each format individually or in batch.
+                  {artifacts.length > 0
+                    ? 'Review, edit, approve, or download each format individually or in batch.'
+                    : 'Status information for this transformation.'}
                 </p>
               </div>
 
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleDownloadAll}
-                loading={isDownloadingAll}
-                icon={<Download className="h-3.5 w-3.5" />}
-                className="font-bold shadow-lg shadow-cyan-500/20"
-              >
-                Download All Deliverables
-              </Button>
+              {artifacts.length > 0 && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleDownloadAll}
+                  loading={isDownloadingAll}
+                  icon={<Download className="h-3.5 w-3.5" />}
+                  className="font-bold shadow-lg shadow-cyan-500/20"
+                >
+                  Download All Deliverables
+                </Button>
+              )}
             </div>
 
-            {/* Grid of Deliverables */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {artifacts.map((art) => {
-                const artTitle = (art.metadata?.title as string) || art.artifact_type.replace('_', ' ');
-                const isApproved = art.status === 'approved';
+            {/* Grid of Deliverables or Empty State */}
+            {artifacts.length === 0 ? (
+              <div className="text-center py-10 px-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3">
+                <AlertTriangle className="h-8 w-8 text-amber-400 mx-auto" />
+                <h3 className="text-sm font-bold text-white">
+                  {transformation.status === 'processing'
+                    ? 'AI Transformation is still processing...'
+                    : transformation.status === 'failed'
+                    ? 'AI Transformation could not generate deliverables.'
+                    : 'No generated deliverables found for this transformation.'}
+                </h3>
+                <p className="text-xs text-slate-400 max-w-md mx-auto">
+                  {transformation.status === 'processing'
+                    ? 'Gemini is processing your multimodal source document. Please refresh in a moment.'
+                    : 'You can create a new transformation with the same source document.'}
+                </p>
+                <Button variant="secondary" size="sm" onClick={() => navigate('/create')}>
+                  Create New Transformation
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {artifacts.map((art) => {
+                  const artTitle = (art.metadata?.title as string) || (art.artifact_type ? art.artifact_type.replace('_', ' ') : 'Deliverable');
+                  const isApproved = art.status === 'approved';
+                  const contentPreview = typeof art.content === 'string'
+                    ? art.content
+                    : (art.content ? JSON.stringify(art.content) : '');
 
-                return (
-                  <div
-                    key={art.id}
-                    className="rounded-2xl border border-slate-800/80 bg-slate-950/70 p-4 flex flex-col justify-between hover:border-slate-700 transition-all group"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <div className="p-2 rounded-xl bg-slate-900 border border-slate-800">
-                            {getArtifactIcon(art.artifact_type)}
+                  return (
+                    <div
+                      key={art.id}
+                      className="rounded-2xl border border-slate-800/80 bg-slate-950/70 p-4 flex flex-col justify-between hover:border-slate-700 transition-all group"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="p-2 rounded-xl bg-slate-900 border border-slate-800">
+                              {getArtifactIcon(art.artifact_type)}
+                            </div>
+                            <div>
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                                {art.artifact_type.replace('_', ' ')}
+                              </span>
+                              <h4 className="text-xs font-bold text-white group-hover:text-cyan-300 transition-colors line-clamp-1">
+                                {artTitle}
+                              </h4>
+                            </div>
                           </div>
-                          <div>
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                              {art.artifact_type.replace('_', ' ')}
+
+                          {isApproved ? (
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                              <Check className="h-3 w-3" /> Approved
                             </span>
-                            <h4 className="text-xs font-bold text-white group-hover:text-cyan-300 transition-colors line-clamp-1">
-                              {artTitle}
-                            </h4>
-                          </div>
+                          ) : (
+                            <span className="text-[10px] font-medium text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                              Pending Review
+                            </span>
+                          )}
                         </div>
 
-                        {isApproved ? (
-                          <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-                            <Check className="h-3 w-3" /> Approved
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-medium text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
-                            Pending Review
-                          </span>
-                        )}
+                        <p className="text-[11px] text-slate-400 line-clamp-2 mb-4 leading-relaxed">
+                          {contentPreview.slice(0, 140)}...
+                        </p>
                       </div>
 
-                      <p className="text-[11px] text-slate-400 line-clamp-2 mb-4 leading-relaxed">
-                        {art.content.slice(0, 140)}...
-                      </p>
-                    </div>
+                      <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-900">
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab(art.id)}
+                          className="flex items-center gap-1 text-xs font-semibold text-slate-300 hover:text-white px-2.5 py-1.5 rounded-lg hover:bg-slate-900 transition-colors"
+                        >
+                          <Eye className="h-3.5 w-3.5 text-cyan-400" />
+                          <span>Preview</span>
+                        </button>
 
-                    <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-900">
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab(art.id)}
-                        className="flex items-center gap-1 text-xs font-semibold text-slate-300 hover:text-white px-2.5 py-1.5 rounded-lg hover:bg-slate-900 transition-colors"
-                      >
-                        <Eye className="h-3.5 w-3.5 text-cyan-400" />
-                        <span>Preview</span>
-                      </button>
-
-                      <ExportMenu
-                        artifact={art}
-                        provenance={provenance}
-                        onToast={showToast}
-                      />
+                        <ExportMenu
+                          artifact={art}
+                          provenance={provenance}
+                          onToast={showToast}
+                        />
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Phase B: Canonical Content Intelligence Panel */}
@@ -786,19 +832,28 @@ export function TransformationDetails() {
                             <table className="w-full text-left text-xs">
                               <thead className="bg-slate-900/80 text-slate-400 font-semibold border-b border-slate-800">
                                 <tr>
-                                  {tbl.headers.map((h, hIdx) => (
-                                    <th key={hIdx} className="p-2">{h}</th>
+                                  {Array.isArray(tbl.headers) && tbl.headers.map((h, hIdx) => (
+                                    <th key={hIdx} className="p-2">
+                                      {typeof h === 'object' ? JSON.stringify(h) : String(h ?? '')}
+                                    </th>
                                   ))}
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-850 text-slate-300 font-mono text-[11px]">
-                                {tbl.rows.map((row, rIdx) => (
-                                  <tr key={rIdx} className="hover:bg-slate-900/40">
-                                    {row.map((cell, cIdx) => (
-                                      <td key={cIdx} className="p-2">{cell}</td>
-                                    ))}
-                                  </tr>
-                                ))}
+                                {Array.isArray(tbl.rows) && tbl.rows.map((row, rIdx) => {
+                                  const cells = Array.isArray(row)
+                                    ? row
+                                    : (typeof row === 'object' && row !== null ? Object.values(row) : [row]);
+                                  return (
+                                    <tr key={rIdx} className="hover:bg-slate-900/40">
+                                      {cells.map((cell, cIdx) => (
+                                        <td key={cIdx} className="p-2">
+                                          {typeof cell === 'object' ? JSON.stringify(cell) : String(cell ?? '')}
+                                        </td>
+                                      ))}
+                                    </tr>
+                                  );
+                                })}
                               </tbody>
                             </table>
                           </div>
@@ -1234,12 +1289,13 @@ export function TransformationDetails() {
                   </div>
                 </div>
 
-                {sourceDoc.preprocessing_metadata.preprocessingApplied && (
+                {Array.isArray(sourceDoc.preprocessing_metadata.preprocessingApplied) &&
+                  sourceDoc.preprocessing_metadata.preprocessingApplied.length > 0 && (
                   <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400">
                     <span className="text-slate-400">Pipeline stages applied:</span>
                     {sourceDoc.preprocessing_metadata.preprocessingApplied.map((stageName, idx) => (
                       <span key={idx} className="px-2 py-0.5 rounded bg-slate-950 border border-slate-850 font-mono text-slate-300">
-                        {stageName}
+                        {String(stageName)}
                       </span>
                     ))}
                   </div>

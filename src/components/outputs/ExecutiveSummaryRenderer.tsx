@@ -39,7 +39,7 @@ export function ExecutiveSummaryRenderer({
           )}
         </div>
         <p className="text-sm text-slate-200 leading-relaxed font-medium">
-          {structuredData.executiveBrief || content.slice(0, 200)}
+          {structuredData.executiveBrief || (typeof content === 'string' ? content : JSON.stringify(content || '')).slice(0, 200)}
         </p>
       </div>
 

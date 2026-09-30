@@ -5,8 +5,15 @@ interface MarkdownRendererProps {
 }
 
 export function MarkdownRenderer({ content }: MarkdownRendererProps) {
+  const safeContent = typeof content === 'string'
+    ? content
+    : (content ? JSON.stringify(content, null, 2) : '');
+
   // Simple, robust client-side markdown formatter for paragraphs, headings, lists, bold, code
   const renderFormatted = (text: string) => {
+    if (!text || text.trim().length === 0) {
+      return <p className="text-sm text-slate-400 italic">No content generated.</p>;
+    }
     const lines = text.split('\n');
     const elements: React.ReactNode[] = [];
     let inList = false;
@@ -104,7 +111,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
 
   return (
     <div className="prose prose-invert max-w-none text-slate-200">
-      {renderFormatted(content)}
+      {renderFormatted(safeContent)}
     </div>
   );
 }

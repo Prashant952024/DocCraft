@@ -330,46 +330,75 @@ export function formatSelectedContextForPrompt(
       `Summary: ${ctx.sourceSummary}`,
     ];
 
-    if (ctx.facts.length > 0) {
+    if (Array.isArray(ctx.facts) && ctx.facts.length > 0) {
       lines.push(`Key Facts (${ctx.facts.length}):`);
-      ctx.facts.forEach((f) => lines.push(`- [${f.importance.toUpperCase()}] ${f.statement}`));
-    }
-
-    if (ctx.figures.length > 0) {
-      lines.push(`Key Figures & Metrics (${ctx.figures.length}):`);
-      ctx.figures.forEach((f) => lines.push(`- ${f.value}: ${f.label || ''} ${f.context ? `(${f.context})` : ''}`));
-    }
-
-    if (ctx.actions.length > 0) {
-      lines.push(`Required Actions (${ctx.actions.length}):`);
-      ctx.actions.forEach((a) => lines.push(`- [${a.priority.toUpperCase()}] ${a.action} ${a.deadline ? `(Deadline: ${a.deadline})` : ''}`));
-    }
-
-    if (ctx.dates.length > 0) {
-      lines.push(`Dates: ${ctx.dates.map((d) => d.value).join(', ')}`);
-    }
-
-    if (ctx.entities.length > 0) {
-      lines.push(`Entities: ${ctx.entities.map((e) => `${e.name} (${e.type})`).join(', ')}`);
-    }
-
-    if (ctx.events.length > 0) {
-      lines.push(`Events:`);
-      ctx.events.forEach((e) => lines.push(`- ${e.title}: ${e.description}`));
-    }
-
-    if (ctx.tables.length > 0) {
-      lines.push(`Tables:`);
-      ctx.tables.forEach((t) => {
-        lines.push(`| ${t.headers.join(' | ')} |`);
-        lines.push(`| ${t.headers.map(() => '---').join(' | ')} |`);
-        t.rows.forEach((r) => lines.push(`| ${r.join(' | ')} |`));
+      ctx.facts.forEach((f) => {
+        const stmt = typeof f === 'string' ? f : (f?.statement || JSON.stringify(f));
+        const imp = typeof f === 'object' && f?.importance ? String(f.importance).toUpperCase() : 'FACT';
+        lines.push(`- [${imp}] ${stmt}`);
       });
     }
 
-    if (ctx.quotes.length > 0) {
+    if (Array.isArray(ctx.figures) && ctx.figures.length > 0) {
+      lines.push(`Key Figures & Metrics (${ctx.figures.length}):`);
+      ctx.figures.forEach((f) => {
+        const val = typeof f === 'string' ? f : (f?.value || '');
+        const lbl = typeof f === 'object' && f?.label ? f.label : '';
+        const ctxt = typeof f === 'object' && f?.context ? `(${f.context})` : '';
+        lines.push(`- ${val}: ${lbl} ${ctxt}`);
+      });
+    }
+
+    if (Array.isArray(ctx.actions) && ctx.actions.length > 0) {
+      lines.push(`Required Actions (${ctx.actions.length}):`);
+      ctx.actions.forEach((a) => {
+        const act = typeof a === 'string' ? a : (a?.action || JSON.stringify(a));
+        const pri = typeof a === 'object' && a?.priority ? String(a.priority).toUpperCase() : 'ACTION';
+        const dl = typeof a === 'object' && a?.deadline ? ` (Deadline: ${a.deadline})` : '';
+        lines.push(`- [${pri}] ${act}${dl}`);
+      });
+    }
+
+    if (Array.isArray(ctx.dates) && ctx.dates.length > 0) {
+      lines.push(`Dates: ${ctx.dates.map((d) => (typeof d === 'string' ? d : (d?.value || ''))).filter(Boolean).join(', ')}`);
+    }
+
+    if (Array.isArray(ctx.entities) && ctx.entities.length > 0) {
+      lines.push(`Entities: ${ctx.entities.map((e) => (typeof e === 'string' ? e : `${e?.name || ''} (${e?.type || 'Entity'})`)).join(', ')}`);
+    }
+
+    if (Array.isArray(ctx.events) && ctx.events.length > 0) {
+      lines.push(`Events:`);
+      ctx.events.forEach((e) => {
+        const title = typeof e === 'string' ? e : (e?.title || 'Event');
+        const desc = typeof e === 'object' && e?.description ? `: ${e.description}` : '';
+        lines.push(`- ${title}${desc}`);
+      });
+    }
+
+    if (Array.isArray(ctx.tables) && ctx.tables.length > 0) {
+      lines.push(`Tables:`);
+      ctx.tables.forEach((t) => {
+        if (Array.isArray(t?.headers) && t.headers.length > 0) {
+          lines.push(`| ${t.headers.join(' | ')} |`);
+          lines.push(`| ${t.headers.map(() => '---').join(' | ')} |`);
+          if (Array.isArray(t.rows)) {
+            t.rows.forEach((r) => {
+              const rowCells = Array.isArray(r) ? r : (typeof r === 'object' && r !== null ? Object.values(r) : [r]);
+              lines.push(`| ${rowCells.join(' | ')} |`);
+            });
+          }
+        }
+      });
+    }
+
+    if (Array.isArray(ctx.quotes) && ctx.quotes.length > 0) {
       lines.push(`Direct Quotes:`);
-      ctx.quotes.forEach((q) => lines.push(`- "${q.text}" — ${q.speaker || 'Source'}`));
+      ctx.quotes.forEach((q) => {
+        const qText = typeof q === 'string' ? q : (q?.text || '');
+        const qSpk = typeof q === 'object' && q?.speaker ? ` — ${q.speaker}` : '';
+        lines.push(`- "${qText}"${qSpk}`);
+      });
     }
 
     sections.push(lines.join('\n'));

@@ -148,19 +148,32 @@ export async function saveArtifacts(
   artifacts: GeneratedArtifact[],
   analysisMetadata?: CanonicalContent
 ): Promise<Artifact[]> {
-  const rows = artifacts.map((art) => ({
-    transformation_id: transformationId,
-    user_id: userId,
-    artifact_type: art.type,
-    content: art.content,
-    status: art.status || 'pending_review',
-    metadata: {
-      title: art.title,
-      ...(art.metadata || {}),
-      ...(art.structured_data ? { structured_data: art.structured_data } : {}),
-      ...(analysisMetadata ? { analysis: analysisMetadata } : {}),
-    },
-  }));
+  const rows = artifacts.map((art) => {
+    let safeContent = '';
+    if (typeof art.content === 'string') {
+      safeContent = art.content;
+    } else if (art.content && typeof art.content === 'object') {
+      safeContent = JSON.stringify(art.content, null, 2);
+    } else if (art.structured_data && typeof art.structured_data === 'object') {
+      safeContent = JSON.stringify(art.structured_data, null, 2);
+    } else {
+      safeContent = String(art.content || '');
+    }
+
+    return {
+      transformation_id: transformationId,
+      user_id: userId,
+      artifact_type: art.type,
+      content: safeContent,
+      status: art.status || 'pending_review',
+      metadata: {
+        title: art.title || `${art.type} Artefact`,
+        ...(art.metadata || {}),
+        ...(art.structured_data ? { structured_data: art.structured_data } : {}),
+        ...(analysisMetadata ? { analysis: analysisMetadata } : {}),
+      },
+    };
+  });
 
   const { data, error } = await supabase
     .from('artifacts')

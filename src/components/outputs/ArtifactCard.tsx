@@ -99,7 +99,11 @@ export function ArtifactCard({ artifact, provenance, onUpdate, onToast }: Artifa
 
   // Edit Mode state
   const [isEditing, setIsEditing] = useState(false);
-  const [editableContent, setEditableContent] = useState(artifact.content);
+  const [editableContent, setEditableContent] = useState(
+    typeof artifact.content === 'string'
+      ? artifact.content
+      : (artifact.content ? JSON.stringify(artifact.content, null, 2) : '')
+  );
   const [editableTitle, setEditableTitle] = useState(
     (artifact.metadata?.title as string) || artifact.artifact_type.replace('_', ' ')
   );
